@@ -21,7 +21,7 @@ public:
     base(string&& _filePath);
     void solve();
     void save(string&& _fileName);
-    ~base(){};
+    ~base();
     void siteNodeInit(string&& _filePath);
     void demandNodeInit(string&& _filePath);
     void qosInit(string&& _filePath);
@@ -109,34 +109,10 @@ void base::qosConstraintInit(string&& _filePath){
 
 
 int main() {
- 
-
     base dataInit("../data/");
 	return 0;
 }
 
-
-void creatSiteNodeData(string& _filePath, unordered_map<string,int>& _site_bandwidth){
-    _filePath+="s";
-    string line;
-    string siteName,sbandWidth;
-    std::ifstream _data(_filePath, std::ios::in);
-    std::getline(_data,line);
-    if(!_data.is_open())
-    {
-        std::cout << "Error: opening file fail" << std::endl;
-        std::exit(1);
-    }
-    while (std::getline(_data,line))
-    {
-        std::istringstream sin(line);
-        getline(sin, siteName, ',');
-        getline(sin, sbandWidth, ',');
-        int bandWidth = atoi(sbandWidth.c_str());
-        pair<string,int> temp(siteName,bandWidth);
-        _site_bandwidth.insert(temp);
-    }
-}
 
 
 void base::save(string&& _fileName) {
