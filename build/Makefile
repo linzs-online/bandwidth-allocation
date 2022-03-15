@@ -150,33 +150,6 @@ CodeCraft-2022.cpp.s:
 	$(MAKE) -f CMakeFiles/CodeCraft-2022.dir/build.make CMakeFiles/CodeCraft-2022.dir/CodeCraft-2022.cpp.s
 .PHONY : CodeCraft-2022.cpp.s
 
-dataBase.o: dataBase.cpp.o
-
-.PHONY : dataBase.o
-
-# target to build an object file
-dataBase.cpp.o:
-	$(MAKE) -f CMakeFiles/CodeCraft-2022.dir/build.make CMakeFiles/CodeCraft-2022.dir/dataBase.cpp.o
-.PHONY : dataBase.cpp.o
-
-dataBase.i: dataBase.cpp.i
-
-.PHONY : dataBase.i
-
-# target to preprocess a source file
-dataBase.cpp.i:
-	$(MAKE) -f CMakeFiles/CodeCraft-2022.dir/build.make CMakeFiles/CodeCraft-2022.dir/dataBase.cpp.i
-.PHONY : dataBase.cpp.i
-
-dataBase.s: dataBase.cpp.s
-
-.PHONY : dataBase.s
-
-# target to generate assembly for a file
-dataBase.cpp.s:
-	$(MAKE) -f CMakeFiles/CodeCraft-2022.dir/build.make CMakeFiles/CodeCraft-2022.dir/dataBase.cpp.s
-.PHONY : dataBase.cpp.s
-
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -189,9 +162,6 @@ help:
 	@echo "... CodeCraft-2022.o"
 	@echo "... CodeCraft-2022.i"
 	@echo "... CodeCraft-2022.s"
-	@echo "... dataBase.o"
-	@echo "... dataBase.i"
-	@echo "... dataBase.s"
 .PHONY : help
 
 
