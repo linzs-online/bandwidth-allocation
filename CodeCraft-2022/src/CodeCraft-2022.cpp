@@ -1,5 +1,5 @@
 #include <iostream>
-#include <stdio.h>
+#include <cstdio>
 #include <unordered_map>
 #include <vector>
 #include <fstream>
@@ -17,10 +17,10 @@ private:
     vector<vector<pair<string, int>>> result;
 
 public:
-    base(string&& _filePath){};
+    base(string&& _filePath);
     void solve();
-    void save();
-    ~base();
+    void save(string&& _fileName);
+    ~base(){};
     void siteNodeInit(string&& _filePath);
     void demandNodeInit(string&& _filePath);
     void qosInit(string&& _filePath);
@@ -32,14 +32,13 @@ base::base(string&& _filePath){
     // 初始化siteNodo（ ）
     siteNodeInit(_filePath + "site_bandwidth.csv");
     // 初始化demand（）
-
     // 初始化QOS()
 
     // 初始化config（）
 
 }
 
-base::qosConstraintInit(string&& _filePath){
+void base::qosConstraintInit(string&& _filePath){
     
 }
 
@@ -75,7 +74,6 @@ int main() {
     // pair<string,int> Frame (siteName, bandwith);
     // site_bandwidth.insert(Frame);
     // /* code */
-    
     // cout << site_bandwidth.size() << endl;
 	return 0;
 }
@@ -110,3 +108,28 @@ int getSiteNodeBandWith(string& _name, unordered_map<string,int>& _site_bandwidt
 void siteNodeInit(string&& _filePath){
     
 }
+
+void base::save(string&& _fileName) {
+    ofstream file(_fileName, ios_base::out);
+    int customerNum = demandName.size();
+    for(size_t i = 0; i < result.size(); ++i) {
+        int curCustomerID = i % customerNum; 
+        // 客户ID
+        file << "C" << demandName[curCustomerID] << ":";
+        if (result[i].empty()) {
+            file << "\n";
+            continue;
+        } 
+        // 分配方案
+        for (size_t j = 0; j < result[i].size(); ++j) {
+            file << "<" << result[i][j].first << "," 
+                << result[i][j].second << ">";
+            if (j == result[i].size() - 1) {
+                file << "\n";
+            } else {
+                file << ",";
+            }
+        }
+    }
+    file.close();
+} 
