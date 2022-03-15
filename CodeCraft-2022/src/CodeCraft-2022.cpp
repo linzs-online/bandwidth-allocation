@@ -12,6 +12,7 @@ class base{
 private:
     vector<string> demandNode;
     vector<string> siteNode;
+    vector<int> siteNodeBandwidth;
     unordered_map<string,int> siteBandWith;  //边缘节点的带宽信息
     vector<vector<int>> demand;  //时间序列下的客户节点请求
     unordered_map<string, vector<int>> site2demand;
@@ -47,12 +48,15 @@ void base::siteNodeInit(string&& _filePath){
     std::ifstream site_bandwidthfile(_filePath, std::ios::in);
     std::string line,siteNoteName,siteNodeBW;
     getline(site_bandwidthfile,temp);
+    int siteNodeBW_int;
     while(getline(site_bandwidthfile,line)){
         istringstream sin(line); //将整行字符串line读入到字符串流istringstream中
         getline(sin, siteNoteName, ',');
         siteNode.push_back(siteNoteName);  // 获得边缘节点名字序列
         sin >> siteNodeBW;
-        pair<string,int> _frame(siteNoteName, atoi(siteNodeBW.c_str()));
+        siteNodeBW_int = atoi(siteNodeBW.c_str());
+        siteNodeBandwidth.push_back(siteNodeBW_int);
+        pair<string,int> _frame(siteNoteName, siteNodeBW_int);
         siteBandWith.insert(_frame);  // 把边缘节点和它的带宽封装成unordermap
     };
     
