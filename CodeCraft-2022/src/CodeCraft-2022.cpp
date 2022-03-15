@@ -16,7 +16,7 @@ private:
     unordered_map<string,int> siteBandWith;  //边缘节点的带宽信息
     vector<vector<int>> demand;  //时间序列下的客户节点请求
     unordered_map<string, vector<int>> site2demand;
-	unordered_map<string, vector<int>> custom2site;
+    unordered_map<string, vector<int>> demand2site;
     int qos_constraint;
     vector<vector<pair<string, int>>> result;
 	unordered_map<string, vector<int>> usableSite; // 客户节点可以用的边缘节点；
@@ -52,7 +52,7 @@ base::~base(){
 void base::siteNodeInit(string&& _filePath){
     std::ifstream site_bandwidthfile(_filePath, std::ios::in);
     std::string line,siteNoteName,siteNodeBW;
-    getline(site_bandwidthfile,temp);
+    getline(site_bandwidthfile, temp);
     int siteNodeBW_int;
     while(getline(site_bandwidthfile,line)){
         istringstream sin(line); //将整行字符串line读入到字符串流istringstream中
@@ -70,7 +70,7 @@ void base::siteNodeInit(string&& _filePath){
 
 void base::demandNodeInit(string&& _filePath){
     std::ifstream demandfile(_filePath, std::ios::in);
-    getline(demandfile, line);
+    getline(demandfile, line,'\r');
     istringstream sin(line);
     getline(sin, temp, ',');
     while(getline(sin, temp, ','))
@@ -106,6 +106,18 @@ void base::qosInit(string&& _filePath){
         site2demand.insert(pre_site2demand);
         preSite2demand.clear();
     }
+    vector<int> preDemand2site;
+    auto index = 0;
+    for(auto dd: demandNode){
+        for(auto ss : siteNode){
+            preDemand2site.emplace_back(site2demand.at(ss)[index]);
+        }
+        index++;
+        pair<string,vector<int>> pre_demand2site(dd,preDemand2site);
+        demand2site.insert(pre_demand2site);
+        preDemand2site.clear();
+    }
+
     cout << "preSite2demand Inited " << site2demand.at("A")[2] << endl;
 }
 
@@ -118,7 +130,7 @@ void base::qosConstraintInit(string&& _filePath){
 
 
 int main() {
-    
+
     base dataInit("/Users/dengyinglong/bandwidth-allocation/data/");
 	return 0;
 }
@@ -151,7 +163,7 @@ void base::save(string&& _fileName) {
 }
 
 void base::findUsableSite() {
-	for(auto site : custom2site){
+	for(auto site : demand2site){
 		vector<int> everyCustom = site.second;
 		vector<int> usableCustom2Site;
 		for(int i = 0; i < everyCustom.size(); ++i){
