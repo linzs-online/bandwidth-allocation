@@ -1,5 +1,5 @@
 #include <iostream>
-#include <stdio.h>
+#include <cstdio>
 #include <unordered_map>
 #include <vector>
 #include <fstream>
@@ -20,8 +20,8 @@ private:
 public:
     base(string&& _filePath);
     void solve();
-    void save();
-    ~base();
+    void save(string&& _fileName);
+    ~base(){};
     void siteNodeInit(string&& _filePath);
     void demandNodeInit(string&& _filePath);
     void qosInit(string&& _filePath);
@@ -139,4 +139,27 @@ void creatSiteNodeData(string& _filePath, unordered_map<string,int>& _site_bandw
 }
 
 
-
+void base::save(string&& _fileName) {
+    ofstream file(_fileName, ios_base::out);
+    int customerNum = demandNode.size();
+    for(size_t i = 0; i < result.size(); ++i) {
+        int curCustomerID = i % customerNum; 
+        // 客户ID
+        file << "C" << demandNode[curCustomerID] << ":";
+        if (result[i].empty()) {
+            file << "\n";
+            continue;
+        } 
+        // 分配方案
+        for (size_t j = 0; j < result[i].size(); ++j) {
+            file << "<" << result[i][j].first << "," 
+                << result[i][j].second << ">";
+            if (j == result[i].size() - 1) {
+                file << "\n";
+            } else {
+                file << ",";
+            }
+        }
+    }
+    file.close();
+} 
