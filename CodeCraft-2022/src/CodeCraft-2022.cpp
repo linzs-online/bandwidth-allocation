@@ -65,12 +65,13 @@ void base::siteNodeInit(string&& _filePath){
         siteBandWith.insert(_frame);  // 把边缘节点和它的带宽封装成unordermap
     };
     
-    cout << "siteNodeBandWith Inited " <<  siteBandWith.at("9") << endl;
+    //cout << "siteNodeBandWith Inited " <<  siteBandWith.at("9") << endl;
 }
 
 void base::demandNodeInit(string&& _filePath){
     std::ifstream demandfile(_filePath, std::ios::in);
     getline(demandfile, line,'\r');
+	getline(demandfile, temp,'\n');
     istringstream sin(line);
     getline(sin, temp, ',');
     while(getline(sin, temp, ','))
@@ -87,7 +88,7 @@ void base::demandNodeInit(string&& _filePath){
         demand.emplace_back(demandFrame); //将所有时间序列的客户节点请求封装成vector
         demandFrame.clear();
     }
-    cout << "demandNode Inited " << demandNode.size() << endl;
+    //cout << "demandNode Inited " << demandNode.size() << endl;
 }
 
 void base::qosInit(string&& _filePath){
@@ -118,20 +119,22 @@ void base::qosInit(string&& _filePath){
         preDemand2site.clear();
     }
 
-    cout << "preSite2demand Inited " << site2demand.at("A")[2] << endl;
+    //cout << "preSite2demand Inited " << site2demand.at("A")[2] << endl;
 }
 
 void base::qosConstraintInit(string&& _filePath){
     std::ifstream qos_constraintfile(_filePath, std::ios::in);
     while(getline(qos_constraintfile,temp,'='));
     qos_constraint = atoi(temp.c_str());
-    cout << "qos_constraint = " <<  qos_constraint << endl;
+    //cout << "qos_constraint = " <<  qos_constraint << endl;
 }
 
-
 int main() {
-
-    base dataInit("/Users/dengyinglong/bandwidth-allocation/data/");
+    //base dataInit("/data/");
+    base dataInit("../data/");
+	dataInit.solve();
+    //dataInit.save("/output/solution.txt");
+	dataInit.save("solution.txt");
 	return 0;
 }
 
@@ -141,11 +144,13 @@ void base::save(string&& _fileName) {
     ofstream file(_fileName, ios_base::out);
     int customerNum = demandNode.size();
     for(size_t i = 0; i < result.size(); ++i) {
-        int curCustomerID = i % customerNum; 
+        int curCustomerID = i % customerNum;
         // 客户ID
-        file << "C" << demandNode[curCustomerID] << ":";
-        if (result[i].empty()) {
-            file << "\n";
+        file << demandNode[curCustomerID] << ":";
+        if (result[i].empty() || result[i][0].second == 0) {
+            if (i < result.size() - 1) {
+                file << "\n";
+            }
             continue;
         } 
         // 分配方案
@@ -153,7 +158,9 @@ void base::save(string&& _fileName) {
             file << "<" << result[i][j].first << "," 
                 << result[i][j].second << ">";
             if (j == result[i].size() - 1) {
-                file << "\n";
+                if (i < result.size() - 1) {
+                    file << "\n";
+                }
             } else {
                 file << ",";
             }
@@ -163,21 +170,43 @@ void base::save(string&& _fileName) {
 }
 
 void base::findUsableSite() {
-	for(auto site : demand2site){
-		vector<int> everyCustom = site.second;
+	for (int i = 0; i < demandNode.size(); ++i) {
+		auto site = demand2site.at(demandNode[i]);
 		vector<int> usableCustom2Site;
-		for(int i = 0; i < everyCustom.size(); ++i){
-			if(everyCustom[i] <= qos_constraint){
-				usableCustom2Site.push_back(i);
+		for(int j = 0; j < site.size(); ++j){
+			if(site[j] < qos_constraint){
+				usableCustom2Site.push_back(j);
 			}
 		}
-		pair<string, vector<int>> tempSite;
+
+		pair<string, vector<int>> tempSite(demandNode[i], usableCustom2Site);
 		usableSite.insert(tempSite);
 	}
+
 }
 
-//void base::solve() {
-//	for(auto demandNow : demand){
-//		for(int i = 0; i < )
-//	}
-//}
+void base::solve() {
+    for(auto demandNow : demand){
+        vector<int> siteNodeBandwidthCopy = siteNodeBandwidth; // 边缘节点带宽量的拷贝，每一轮拷贝一次
+        for(int i = 0; i < demandNow.size(); ++i){ // 遍历客户节点
+            vector<pair<string, int>> resultCustom; // 每一轮的结果
+            vector<int> demandUsableSite = usableSite[demandNode[i]]; // 获取当前客户节点可用的边缘节点
+            for (int j = 0; j < demandUsableSite.size(); ++j) { // 遍历可用边缘节点
+                if(siteNodeBandwidthCopy[demandUsableSite[j]] == 0) continue;
+                if(demandNow[i] <= siteNodeBandwidthCopy[demandUsableSite[j]]){ // 若边缘节点可以分配足够带宽
+                    siteNodeBandwidthCopy[demandUsableSite[j]] -= demandNow[i]; // 减去分配带宽
+                    pair<string, int> y(siteNode[demandUsableSite[j]], demandNow[i]);
+                    resultCustom.push_back(y);
+                    break;
+                }
+                else{ // 边缘节点带宽量不够
+                    demandNow[i] -= siteNodeBandwidthCopy[demandUsableSite[j]]; // 将剩余的带宽量分配
+                    pair<string, int> x(siteNode[demandUsableSite[j]], siteNodeBandwidthCopy[demandUsableSite[j]]);
+                    siteNodeBandwidthCopy[demandUsableSite[j]] = 0;
+                    resultCustom.push_back(x);
+                }
+            }
+            result.push_back(resultCustom);
+        }
+    }
+}
