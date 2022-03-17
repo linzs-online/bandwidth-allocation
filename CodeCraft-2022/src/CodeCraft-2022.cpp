@@ -8,7 +8,7 @@
 using namespace std;
 string temp,line;
 
-class base{
+class Base{
 private:
     vector<string> demandNode;
     vector<string> siteNode;
@@ -21,19 +21,31 @@ private:
     vector<vector<pair<string, int>>> result;
 	unordered_map<string, vector<int>> usableSite; // 客户节点可以用的边缘节点；
 public:
-    base(string&& _filePath);
+    Base(string&& _filePath);
     void solve();
     void save(string&& _fileName);
-    ~base();
+    ~Base() {};
     void siteNodeInit(string&& _filePath);
     void demandNodeInit(string&& _filePath);
     void qosInit(string&& _filePath);
     void qosConstraintInit(string&& _filePath);
 	void findUsableSite();
+    void _largestMethod(int demandNow,
+                        vector<int>& siteNodeBand, 
+                        const vector<int>& demandUsableSite, 
+                        vector<pair<string, int>>& result) const;
+    void _avergeMethod(int demandNow,
+                        vector<int>& siteNodeBand, 
+                        const vector<int>& demandUsableSite, 
+                        vector<pair<string, int>>& result) const;
+    void _avergeDistribution(int demandNow,
+                        vector<int>& siteNodeBand, 
+                        const vector<int>& demandUsableSite, 
+                        unordered_map<string, int>& record) const;
 };
 
 
-base::base(string&& _filePath){ 
+Base::Base(string&& _filePath){ 
     // 初始化siteNodo（ ）
     siteNodeInit(_filePath + "site_bandwidth.csv");
     // 初始化demand（）
@@ -45,11 +57,8 @@ base::base(string&& _filePath){
 	//找到满足qos的site
 	findUsableSite();
 }
-base::~base(){
-    
-}
 
-void base::siteNodeInit(string&& _filePath){
+void Base::siteNodeInit(string&& _filePath){
     std::ifstream site_bandwidthfile(_filePath, std::ios::in);
     std::string line,siteNoteName,siteNodeBW;
     getline(site_bandwidthfile, temp);
@@ -68,7 +77,7 @@ void base::siteNodeInit(string&& _filePath){
     //cout << "siteNodeBandWith Inited " <<  siteBandWith.at("9") << endl;
 }
 
-void base::demandNodeInit(string&& _filePath){
+void Base::demandNodeInit(string&& _filePath){
     std::ifstream demandfile(_filePath, std::ios::in);
     getline(demandfile, line,'\r');
 	getline(demandfile, temp,'\n');
@@ -91,7 +100,7 @@ void base::demandNodeInit(string&& _filePath){
     //cout << "demandNode Inited " << demandNode.size() << endl;
 }
 
-void base::qosInit(string&& _filePath){
+void Base::qosInit(string&& _filePath){
     std::ifstream qosfile(_filePath, std::ios::in);
     getline(qosfile, temp);
     vector<int> preSite2demand;
@@ -122,7 +131,7 @@ void base::qosInit(string&& _filePath){
     //cout << "preSite2demand Inited " << site2demand.at("A")[2] << endl;
 }
 
-void base::qosConstraintInit(string&& _filePath){
+void Base::qosConstraintInit(string&& _filePath){
     std::ifstream qos_constraintfile(_filePath, std::ios::in);
     while(getline(qos_constraintfile,temp,'='));
     qos_constraint = atoi(temp.c_str());
@@ -130,17 +139,17 @@ void base::qosConstraintInit(string&& _filePath){
 }
 
 int main() {
-    //base dataInit("/data/");
-    base dataInit("../data/");
+    //Base dataInit("/data/");
+    Base dataInit("/data/");
 	dataInit.solve();
     //dataInit.save("/output/solution.txt");
-	dataInit.save("solution.txt");
+	dataInit.save("/output/solution.txt");
 	return 0;
 }
 
 
 
-void base::save(string&& _fileName) {
+void Base::save(string&& _fileName) {
     ofstream file(_fileName, ios_base::out);
     int customerNum = demandNode.size();
     for(size_t i = 0; i < result.size(); ++i) {
@@ -169,11 +178,11 @@ void base::save(string&& _fileName) {
     file.close();
 }
 
-void base::findUsableSite() {
-	for (int i = 0; i < demandNode.size(); ++i) {
+void Base::findUsableSite() {
+	for (size_t i = 0; i < demandNode.size(); ++i) {
 		auto site = demand2site.at(demandNode[i]);
 		vector<int> usableCustom2Site;
-		for(int j = 0; j < site.size(); ++j){
+		for(size_t j = 0; j < site.size(); ++j){
 			if(site[j] < qos_constraint){
 				usableCustom2Site.push_back(j);
 			}
@@ -185,28 +194,124 @@ void base::findUsableSite() {
 
 }
 
-void base::solve() {
+void Base::solve() {
     for(auto demandNow : demand){
         vector<int> siteNodeBandwidthCopy = siteNodeBandwidth; // 边缘节点带宽量的拷贝，每一轮拷贝一次
-        for(int i = 0; i < demandNow.size(); ++i){ // 遍历客户节点
+        for(size_t i = 0; i < demandNow.size(); ++i){ // 遍历客户节点
             vector<pair<string, int>> resultCustom; // 每一轮的结果
-            vector<int> demandUsableSite = usableSite[demandNode[i]]; // 获取当前客户节点可用的边缘节点
-            for (int j = 0; j < demandUsableSite.size(); ++j) { // 遍历可用边缘节点
-                if(siteNodeBandwidthCopy[demandUsableSite[j]] == 0) continue;
-                if(demandNow[i] <= siteNodeBandwidthCopy[demandUsableSite[j]]){ // 若边缘节点可以分配足够带宽
-                    siteNodeBandwidthCopy[demandUsableSite[j]] -= demandNow[i]; // 减去分配带宽
-                    pair<string, int> y(siteNode[demandUsableSite[j]], demandNow[i]);
-                    resultCustom.push_back(y);
-                    break;
-                }
-                else{ // 边缘节点带宽量不够
-                    demandNow[i] -= siteNodeBandwidthCopy[demandUsableSite[j]]; // 将剩余的带宽量分配
-                    pair<string, int> x(siteNode[demandUsableSite[j]], siteNodeBandwidthCopy[demandUsableSite[j]]);
-                    siteNodeBandwidthCopy[demandUsableSite[j]] = 0;
-                    resultCustom.push_back(x);
-                }
-            }
+            vector<int> demandUsableSite = usableSite[demandNode[i]]; // 获取当前时刻可用的边缘节点
+            // _largestMethod(demandNow[i], siteNodeBandwidthCopy, demandUsableSite, resultCustom);
+            _avergeMethod(demandNow[i], siteNodeBandwidthCopy, demandUsableSite, resultCustom);
             result.push_back(resultCustom);
         }
     }
 }
+
+
+/**
+ * @brief 最大划分
+ * @param demanNow 某个客户需求量
+ * @param siteNodeBand 边缘节点带宽量
+ * @param demandUsableSite 延迟满足的边缘节点
+ * @param result 结果
+ */
+void Base::_largestMethod(int demandNow,
+            vector<int>& siteNodeBand, 
+            const vector<int>& demandUsableSite, 
+            vector<pair<string, int>>& result) const {
+    for (size_t j = 0; j < demandUsableSite.size(); ++j) { // 遍历可用边缘节点
+        if (siteNodeBand[demandUsableSite[j]] == 0) {
+            continue;
+        }
+        if (demandNow <= siteNodeBand[demandUsableSite[j]]) {                                                               // 若边缘节点可以分配足够带宽
+            siteNodeBand[demandUsableSite[j]] -= demandNow; // 减去分配带宽
+            pair<string, int> y(siteNode[demandUsableSite[j]], demandNow);
+            result.push_back(y);
+            break;
+        }
+        else {                                                               // 边缘节点带宽量不够
+            demandNow -= siteNodeBand[demandUsableSite[j]]; // 将剩余的带宽量分配
+            pair<string, int> x(siteNode[demandUsableSite[j]], siteNodeBand[demandUsableSite[j]]);
+            siteNodeBand[demandUsableSite[j]] = 0;
+            result.push_back(x);
+        }
+    }
+}
+
+
+/**
+ * @brief 均分策略进行分配
+ * @param demanNow 某个客户需求量
+ */
+void Base::_avergeMethod(int demandNow,
+            vector<int>& siteNodeBand, 
+            const vector<int>& demandUsableSite, 
+            vector<pair<string, int>>& result) const {
+    unordered_map<string, int> record;
+    _avergeDistribution(demandNow, siteNodeBand, 
+                demandUsableSite, record);
+    auto it = record.cbegin();
+    while (it != record.cend()) {
+        pair<string, int> tmp(it->first, it->second);
+        result.emplace_back(tmp);
+        it++;
+    }
+}
+
+
+/**
+ * @breif 查询带宽
+*/
+inline int bandInit(const string& key, const 
+            unordered_map<string, int>& record) {
+    if (record.count(key)) {
+        return record.at(key);
+    }
+    return 0;
+}
+
+
+
+void Base::_avergeDistribution(int demandNow,
+                vector<int>& siteNodeBand, 
+                const vector<int>& demandUsableSite, 
+                unordered_map<string, int>& record) const {
+    // 均分策略
+    for (size_t i = 0; i < demandUsableSite.size(); ++i) {
+        size_t useableNumber = demandUsableSite.size() - i;
+        if (demandNow == 0) {
+            return;
+        }
+        int site = demandUsableSite[i];
+        if (siteNodeBand[site] == 0) {
+            continue;
+        }
+        int averDemand = demandNow / useableNumber;
+        int res = demandNow - averDemand * useableNumber;
+        // 获得边缘节点分配量
+        int band = bandInit(siteNode[site], record);
+        auto getBand = [&](int demand) {
+            if (demand == 0) {
+                return;
+            }
+            if (siteNodeBand[site] >= demand) {
+                band += demand;
+                siteNodeBand[site] -= demand;
+            } else {
+                band += siteNodeBand[site];
+                useableNumber -= 1;
+                siteNodeBand[site] = 0;
+            }
+            
+        };
+        getBand(res);
+        getBand(averDemand);
+        // 更新
+        demandNow -= band;
+        record[siteNode[site]] = band;
+    }
+
+    // 递归分配余量
+    _avergeDistribution(demandNow, siteNodeBand, demandUsableSite, record);
+}
+
