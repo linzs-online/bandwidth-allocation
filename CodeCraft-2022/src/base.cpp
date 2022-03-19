@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <math.h>
 #include "../inc/base.h"
+#include "../inc/tic_toc.h"
 
 using std::istringstream;
 using std::ofstream;
@@ -224,41 +225,57 @@ void Base::findUsableSite() {
 }
 
 
+//void Base::solve() {
+//	vector<int> siteCnt(siteNode.size(), 0); //记录每个边缘节点使用的次数
+//	int maxFree = floor(demand.size() * 0.05) - 1; //向下取整，相当于向上取整取前5%，可以免费使用的每个边缘节点的次数
+//	bool flag = false; // 最大分配后是否还有带宽未被分配
+//    auto curLayer = _layers.begin();
+//    for(auto demandFrame : demand){  //从请求列表中一帧一帧取出来
+//        vector<int> siteNodeBandwidthCopy = siteNodeBandwidth; //边缘节点带宽量的拷贝，每一轮拷贝一次
+//        unordered_set<int> usedSiteIndex; //用于记录当前帧被最大分配使用的边缘节点的序号
+//        for(size_t i = 0; i < demandFrame.size(); ++i){ // 遍历一帧中所有的客户节点的流量请求
+//            vector<pair<string, int>> preFramePreDemandResult; // 用于存储每一帧中的每一客户节点流量请求分发的结果
+//            vector<int> demandUsableSiteIndex = usableSite.at(demandNode[i]); // 获取当前客户节点可用的边缘节点序号
+////			_largestMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, resultCustom, siteCnt, maxFree, flag);
+//            // _weightMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex,
+//            //                 preFramePreDemandResult, *curLayer);
+//			if(judgeRestFree(demandUsableSiteIndex, siteCnt, maxFree)) { // 只要还有可以最大分配的边缘节点，先最大分配
+//				_largestMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex,
+//                                preFramePreDemandResult, siteCnt, maxFree, flag, usedSiteIndex);
+//                if(flag) { // 有未被分配的带宽，该轮demand还需要平均分配
+//					_weightMethod(demandFrame[i], siteNodeBandwidthCopy,
+//                                demandUsableSiteIndex, preFramePreDemandResult, *curLayer);
+//					flag = false;
+//				}
+//			}
+//			else{ //所有边缘节点免费使用次数白嫖完成，剩下的流量请求使用平均分配的方式
+//				_weightMethod(demandFrame[i], siteNodeBandwidthCopy,
+//                        demandUsableSiteIndex, preFramePreDemandResult, *curLayer);
+//			}
+//            curLayer++;
+//            result.push_back(preFramePreDemandResult); //当前时刻当前客户节点流量请求分配方案存入结果
+//        }
+//        //一帧的所有客户节点的流量请求处理完成，对在最大分配方案中使用过的边缘节点记录一次
+//        for(auto& it : usedSiteIndex){
+//            siteCnt[it]++;
+//        }
+//    }
+//}
+
+/**
+ * @brief 模拟退火版solve
+ */
 void Base::solve() {
-	vector<int> siteCnt(siteNode.size(), 0); //记录每个边缘节点使用的次数
-	int maxFree = floor(demand.size() * 0.05) - 1; //向下取整，相当于向上取整取前5%，可以免费使用的每个边缘节点的次数
-	bool flag = false; // 最大分配后是否还有带宽未被分配
-    auto curLayer = _layers.begin();
-    for(auto demandFrame : demand){  //从请求列表中一帧一帧取出来
-        vector<int> siteNodeBandwidthCopy = siteNodeBandwidth; //边缘节点带宽量的拷贝，每一轮拷贝一次
-        unordered_set<int> usedSiteIndex; //用于记录当前帧被最大分配使用的边缘节点的序号
-        for(size_t i = 0; i < demandFrame.size(); ++i){ // 遍历一帧中所有的客户节点的流量请求
-            vector<pair<string, int>> preFramePreDemandResult; // 用于存储每一帧中的每一客户节点流量请求分发的结果
-            vector<int> demandUsableSiteIndex = usableSite.at(demandNode[i]); // 获取当前客户节点可用的边缘节点序号
-//			_largestMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, resultCustom, siteCnt, maxFree, flag);
-            // _weightMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, 
-            //                 preFramePreDemandResult, *curLayer);
-			if(judgeRestFree(demandUsableSiteIndex, siteCnt, maxFree)) { // 只要还有可以最大分配的边缘节点，先最大分配
-				_largestMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, 
-                                preFramePreDemandResult, siteCnt, maxFree, flag, usedSiteIndex);
-                if(flag) { // 有未被分配的带宽，该轮demand还需要平均分配
-					_weightMethod(demandFrame[i], siteNodeBandwidthCopy, 
-                                demandUsableSiteIndex, preFramePreDemandResult, *curLayer);
-					flag = false;
-				}
-			}
-			else{ //所有边缘节点免费使用次数白嫖完成，剩下的流量请求使用平均分配的方式
-				_weightMethod(demandFrame[i], siteNodeBandwidthCopy, 
-                        demandUsableSiteIndex, preFramePreDemandResult, *curLayer);
-			}
-            curLayer++;
-            result.push_back(preFramePreDemandResult); //当前时刻当前客户节点流量请求分配方案存入结果
-        }
-        //一帧的所有客户节点的流量请求处理完成，对在最大分配方案中使用过的边缘节点记录一次
-        for(auto& it : usedSiteIndex){
-            siteCnt[it]++;
-        }
-    }
+	TicToc tictoc;
+
+	int L = 20000; // 最大迭代次数
+	float T = 1.0;
+	float endT = 1e-16;
+	bool flag = true; // 用作代表第一次迭代
+	while (--L) {
+		simulatedAnnealing(flag, T);
+		if(T < endT) break; // 达到终止温度
+	}
 }
 
 
@@ -460,4 +477,95 @@ bool Base::judgeRestFree(vector<int>& _demandUsableSiteIndex ,vector<int>& _site
 			}
 		}
     return false;
+}
+
+float computeErr(float x, float y) {
+	return (x * x + y * y) * (x * x + y * y);
+}
+
+float computeAlpha(float err) {
+	return exp(-err);
+}
+
+// 生成需要修改权重的层数
+vector<size_t> randomLayer(size_t min_val,size_t max_val, size_t num) {
+	vector<size_t> randomVec;
+
+	for (int i = 0; i < num; ++i) {
+		size_t num_val = rand()%(max_val-min_val+1) + min_val;
+		randomVec.push_back(num_val);
+	}
+
+	return randomVec;
+}
+
+
+/**
+ * @brief 更新一个客户节点与其相连的边缘节点的权重
+ * @param weight 该客户节点与边缘节点的权重
+ *
+ */
+void updateWeight(Paramerter::Ptr weight, vector<int> demandUsableSiteIndex) {
+	for (size_t i = 0; i < weight->value.size(); ++i) {
+		// value的下标与可用边缘节点的下标相同, 遍历可用边缘节点
+		// 计算该边缘节点的x, y
+		float x = 0.0, y = 0.0;
+		float e = computeErr(x, y);
+		float a = computeAlpha(e);
+		weight->value[i] *= a;
+	}
+	weight->softmax();
+}
+
+
+/**
+ * @brief 模拟退火算法实现
+ *
+ */
+void Base::simulatedAnnealing(bool flag, float &T) {
+	double a = 0, err = 0;
+	float dT = 0.99;
+	vector<vector<pair<string, int>>> resultNow;
+	auto curLayer = _layers.begin();
+	auto modifyLayers = randomLayer(0, demand.size() - 1, demand.size() * 0.3);
+
+	for(int i = 0; i < demand.size(); ++i) { //
+		auto demandFrame = demand[i];
+		vector<int> siteNodeBandwidthCopy = siteNodeBandwidth; // 边缘节点带宽量的拷贝，每一时刻拷贝一次
+		for (size_t j = 0; j < demandFrame.size(); ++j) {
+			vector<pair<string, int>> preFramePreDemandResult; // 当前时刻当前客户节点的分配方案
+			vector<int> demandUsableSiteIndex = usableSite.at(demandNode[j]); // 当前客户节点连接的边缘节点
+			_weightMethod(demandFrame[j], siteNodeBandwidthCopy, demandUsableSiteIndex,
+						  preFramePreDemandResult, *curLayer);
+
+			// 对当前层的客户节点权重进行更新
+			if(find(modifyLayers.begin(), modifyLayers.end(), i) != modifyLayers.end()and flag == false) {
+				updateWeight(*curLayer, demandUsableSiteIndex);
+			}
+			resultNow.emplace_back(preFramePreDemandResult);
+			++curLayer;
+		}
+	}
+
+
+	if(flag) {
+		// 第一次迭代
+		result = resultNow;
+		flag = false;
+	}
+	else{ // 比较成本
+		auto scoreNow = getScore(resultNow);
+		auto scoreLast = getScore(result);
+		float df = scoreNow - scoreLast;
+
+		double p = rand()%10000;     //p为0~1之间的随机数
+		if(df < 0) {
+			result = resultNow;
+		}
+		else if(exp(-df / T) > p) {
+			result = resultNow;
+		}
+	}
+
+	T *= dT;
 }
