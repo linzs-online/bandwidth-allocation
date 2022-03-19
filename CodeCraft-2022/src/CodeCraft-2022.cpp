@@ -43,7 +43,8 @@ public:
                         vector<pair<string, int>>& result,
 						vector<int> &siteCnt,
 						const int maxFree,
-						bool &flag) const;
+						bool &flag,
+                        unordered_set<int>& usedSiteIndex) const;
     void _avergeMethod(int demandNow,
                         vector<int>& siteNodeBand,
                         const vector<int>& demandUsableSite,
@@ -229,17 +230,15 @@ unsigned int Base::getScore(){
 
 
 int main() {
+    using std::cout;
+    using std::endl;
     TicToc clockCaculate;
-    //test("../../data/demand.csv");
     //Base dataInit("/Users/dengyinglong/bandwidth-allocation/data/");
     Base dataInit("../data/");
 	dataInit.solve();
-	//dataInit.save("solution.txt");
 	dataInit.save("solution.txt");
-
     cout << dataInit.getScore() << endl;
-    
-    cout << "所有程序运行时间: " << clockCaculate.toc()  << "ms" << endl;
+    //cout << "所有程序运行时间: " << clockCaculate.toc()  << "ms" << endl;
 	return 0;
 }
 
@@ -275,96 +274,99 @@ void Base::save(string&& _fileName) {
 void Base::findUsableSite() {
 	for (size_t i = 0; i < demandNode.size(); ++i) {
 		auto site = demand2site.at(demandNode[i]);
-		vector<int> usableCustom2Site;
+		vector<int> usableDemand2Site;
 		for(size_t j = 0; j < site.size(); ++j){
 			if(site[j] < qos_constraint){
-				usableCustom2Site.push_back(j);
+				usableDemand2Site.push_back(j);
 			}
 		}
-
-		pair<string, vector<int>> tempSite(demandNode[i], usableCustom2Site);
-		usableSite.insert(tempSite);
+		pair<string, vector<int>> tempSite(demandNode[i], usableDemand2Site);
+		usableSite.insert(tempSite);  //usableSite里面封装了：客户节点名字-可以用的边缘节点序号
 	}
-
 }
 
 void Base::solve() {
-	vector<int> siteCnt(siteNode.size(), 0);
-	int maxFree = demand.size() * 0.05;
+	vector<int> siteCnt(siteNode.size(), 0); //记录每个边缘节点使用的次数
+	int maxFree = floor(demand.size() * 0.05) - 1; //向下取整，相当于向上取整取前5%，可以免费使用的每个边缘节点的次数
 	bool flag = false; // 最大分配后是否还有带宽未被分配
-    for(auto demandNow : demand){
-        vector<int> siteNodeBandwidthCopy = siteNodeBandwidth; // 边缘节点带宽量的拷贝，每一轮拷贝一次
-        for(size_t i = 0; i < demandNow.size(); ++i){ // 遍历客户节点
-            vector<pair<string, int>> resultCustom; // 每一轮的结果
-            vector<int> demandUsableSite = usableSite[demandNode[i]]; // 获取当前时刻可用的边缘节点
-//			_largestMethod(demandNow[i], siteNodeBandwidthCopy, demandUsableSite, resultCustom, siteCnt, maxFree, flag);
-//            _avergeMethod(demandNow[i], siteNodeBandwidthCopy, demandUsableSite, resultCustom);
-			if(judgeRestFree(siteCnt, maxFree)) { // 只要还有可以最大分配的边缘节点，先最大分配
-				_largestMethod(demandNow[i], siteNodeBandwidthCopy, demandUsableSite, resultCustom, siteCnt, maxFree, flag);
-				if(flag) { // 有未被分配的带宽，该轮demand还需要平均分配
-					_avergeMethod(demandNow[i], siteNodeBandwidthCopy, demandUsableSite, resultCustom);
+    for(auto demandFrame : demand){  //从请求列表中一帧一帧取出来
+        vector<int> siteNodeBandwidthCopy = siteNodeBandwidth; //边缘节点带宽量的拷贝，每一轮拷贝一次
+        unordered_set<int> usedSiteIndex; //用于记录当前帧被最大分配使用的边缘节点的序号
+        for(size_t i = 0; i < demandFrame.size(); ++i){ // 遍历一帧中所有的客户节点的流量请求
+            vector<pair<string, int>> preFramePreDemandResult; // 用于存储每一帧中的每一客户节点流量请求分发的结果
+            vector<int> demandUsableSiteIndex = usableSite.at(demandNode[i]); // 获取当前客户节点可用的边缘节点序号
+//			_largestMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, resultCustom, siteCnt, maxFree, flag);
+//          _avergeMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, resultCustom);
+			if(judgeRestFree(demandUsableSiteIndex, maxFree)) { // 只要还有可以最大分配的边缘节点，先最大分配
+				_largestMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, preFramePreDemandResult, siteCnt, maxFree, flag, usedSiteIndex);
+                if(flag) { // 有未被分配的带宽，该轮demand还需要平均分配
+					_avergeMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, preFramePreDemandResult);
 					flag = false;
 				}
 			}
-			else{
-				_avergeMethod(demandNow[i], siteNodeBandwidthCopy, demandUsableSite, resultCustom);
+			else{ //所有边缘节点免费使用次数白嫖完成，剩下的流量请求使用平均分配的方式
+				_avergeMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, preFramePreDemandResult);
 			}
-            result.push_back(resultCustom);
+            result.push_back(preFramePreDemandResult); //当前时刻当前客户节点流量请求分配方案存入结果
+        }
+        //一帧的所有客户节点的流量请求处理完成，对在最大分配方案中使用过的边缘节点记录一次
+        for(auto& it : usedSiteIndex){
+            siteCnt[it]++;
         }
     }
 }
 
-
 /**
  * @brief 最大划分
- * @param demanNow 某个客户需求量
+ * @param demanNow 某个客户的流量请求
  * @param siteNodeBand 边缘节点带宽量
  * @param demandUsableSite 延迟满足的边缘节点
  * @param result 结果
  */
+//_largestMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, resultCustom, siteCnt, maxFree, flag);
 void Base::_largestMethod(int &demandNow,
             vector<int>& siteNodeBand,
-            const vector<int>& demandUsableSite,
-            vector<pair<string, int>>& result,
+            const vector<int>& _demandUsableSiteIndex,
+            vector<pair<string, int>>& _preFramePreDemandResult,
 			vector<int> &siteCnt,
 			const int maxFree,
-			bool &flag) const {
-	unordered_set<int> usedSite;
-    for (size_t j = 0; j < demandUsableSite.size(); ++j) { // 遍历可用边缘节点
-		if(siteCnt[demandUsableSite[j]] >= maxFree){
-			if(j == demandUsableSite.size() - 1) { // 遍历边缘节点时出现了一直跳过的情况，有带宽没分完
+			bool &flag,
+            unordered_set<int>& usedSiteIndex) const {
+    for(size_t j = 0; j < _demandUsableSiteIndex.size(); ++j) { // 遍历可用边缘节点
+		if(siteCnt[_demandUsableSiteIndex[j]] >= maxFree){
+            //cout << "该客户节点可以使用的这个边缘节点的免费使用次数已达最大,将检索下一个可用的边缘节点" << endl;
+			if(j == _demandUsableSiteIndex.size() - 1) { // 遍历边缘节点时出现了一直跳过的情况
 				flag = true;
+                //cout << "所有边缘节点使用次数已达最大,将采用平均分配策略" << endl;
 			}
 			continue;
 		}
-        if (siteNodeBand[demandUsableSite[j]] == 0) {
-			if(j == demandUsableSite.size() - 1) { // 有带宽没分完
+        if(siteNodeBand[_demandUsableSiteIndex[j]] == 0) {
+            //检索到的当前边缘节点剩余带宽为0，将跳过，检索下一个可用的边缘节点
+			if(j == _demandUsableSiteIndex.size() - 1) { // 有带宽没分完
 				flag = true;
 			}
             continue;
         }
-        if (demandNow <= siteNodeBand[demandUsableSite[j]]) {                                                               // 若边缘节点可以分配足够带宽
-            siteNodeBand[demandUsableSite[j]] -= demandNow; // 减去分配带宽
-            pair<string, int> y(siteNode[demandUsableSite[j]], demandNow);
-            result.push_back(y);
-			usedSite.insert(demandUsableSite[j]);
-			demandNow = 0;
+        if(demandNow <= siteNodeBand[_demandUsableSiteIndex[j]]) {   // 如果当前流量请求小于当前边缘节点的带宽                                                            // 若边缘节点可以分配足够带宽
+            siteNodeBand[_demandUsableSiteIndex[j]] -= demandNow; // 该边缘节点的带宽减去流量请求，存下剩余带宽
+            pair<string, int> distributionRes(siteNode[_demandUsableSiteIndex[j]], demandNow);
+            _preFramePreDemandResult.push_back(distributionRes); //因为流量请求小于当前边缘节点的带宽，所以分配一个边缘节点部分带宽即够
+			usedSiteIndex.insert(_demandUsableSiteIndex[j]);
+			demandNow = 0;  //已经满足当前的流量请求
             break;
         }
-        else {                                                               // 边缘节点带宽量不够
-            demandNow -= siteNodeBand[demandUsableSite[j]]; // 将剩余的带宽量分配
-            pair<string, int> x(siteNode[demandUsableSite[j]], siteNodeBand[demandUsableSite[j]]);
-            siteNodeBand[demandUsableSite[j]] = 0;
-            result.push_back(x);
-			usedSite.insert(demandUsableSite[j]);
-            if(j == demandUsableSite.size() - 1) {
+        else{   // 单个边缘节点带宽量不够
+            demandNow -= siteNodeBand[_demandUsableSiteIndex[j]]; // 将剩余的带宽量全部分配给当前请求
+            pair<string, int> x(siteNode[_demandUsableSiteIndex[j]], siteNodeBand[_demandUsableSiteIndex[j]]);
+            siteNodeBand[_demandUsableSiteIndex[j]] = 0; //分配完之后该边缘节点的剩余带宽已经为0
+            _preFramePreDemandResult.push_back(x); //把当前边缘节点的全部带宽分配到该请求作为结果存入
+			usedSiteIndex.insert(_demandUsableSiteIndex[j]); //存入使用过的边缘节点的序号
+            if(j == _demandUsableSiteIndex.size() - 1) {
                 flag = true;
             }
         }
     }
-	for(int it : usedSite){
-		siteCnt[it]++;
-	}
 }
 
 
@@ -445,14 +447,19 @@ void Base::_avergeDistribution(int demandNow,
     _avergeDistribution(demandNow, siteNodeBand, demandUsableSite, record);
 }
 
-bool Base::judgeRestFree(vector<int> siteCnt, int maxFree) {
-	for(auto node : demandNode){
-		auto site = usableSite[node];
-		for(auto usableIndex : site) {
-			if(siteCnt[usableIndex] < maxFree) {
+/**
+ * @brief 判断是边缘节点中否还有免费使用的次数
+ * 
+ * @param siteCnt 
+ * @param _maxFree 
+ * @return true 
+ * @return false 
+ */
+bool Base::judgeRestFree(vector<int> siteCnt, int _maxFree) {
+		for(auto& _usedCnt : siteCnt) {
+			if( _usedCnt <= _maxFree) {
 				return true;
 			}
 		}
-	}
     return false;
 }
