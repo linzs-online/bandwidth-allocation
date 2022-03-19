@@ -25,7 +25,9 @@ private:
     unordered_map<string, vector<int>> demand2site;
     int qos_constraint;
 	unordered_map<string, vector<int>> usableSite; // 客户节点可以用的边缘节点；
-    vector<Paramerter::Ptr> _layers;
+    vector<Paramerter::Ptr> _layers; // 所有层的权重, 是一个二维数组，外层的vector是所有时刻下客户节点顺序排列
+
+	vector<unordered_map<string, vector<int>>> _Weights;
 
 public:
     vector<vector<pair<string, int>>> result;
@@ -53,6 +55,7 @@ public:
                         vector<pair<string, int>>& result,
                         Paramerter::Ptr weight) const;
     unsigned int getScore(vector<vector<pair<string, int>>>& result);
+	void simulatedAnnealing(bool flag, float &T);
 
 private:
     void _weightDistribution(int demandNow,
