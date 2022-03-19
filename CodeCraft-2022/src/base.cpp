@@ -106,15 +106,13 @@ void Base::qosConstraintInit(string&& _filePath){
 }
 /**
  * @brief 把每帧的结果放在一个vector里面，里面的存放形式是：客户节点-分配方案
- * 
- * @return vector<unordered_map<string,vector<pair<string,  int>>>> 
  */
-void Base::getPreFrameResult(vector<unordered_map<string,vector<pair<string,  int>>>>& _preFrameResult){
+void Base::getPreFrameResult(vector<unordered_map<string,vector<pair<string,int>>>>& _preFrameResult,
+                             vector<vector<pair<string, int>>>& result){
     unordered_map<string,vector<pair<string,  int>>> _preFramePreDemandPlan;
     //用总帧数量指定存放结果的vector大小
     int demandNodeSize = demandNode.size();
     int index = 0;  //客户节点名称序号
-    int resultSize = result.size();
     for(auto _result: result){
         //客户节点 - 分配方案
         pair<string,vector<pair<string,  int>>> _temp(demandNode[index++],_result);
@@ -131,11 +129,10 @@ void Base::getPreFrameResult(vector<unordered_map<string,vector<pair<string,  in
  * 
  * @return unsigned int 
  */
-unsigned int Base::getScore(){
+unsigned int Base::getScore(vector<vector<pair<string, int>>>& result){
     vector<unordered_map<string,vector<pair<string, int>>>> preFrameResult;
-    this->getPreFrameResult(preFrameResult);
+    this->getPreFrameResult(preFrameResult, result);
     unordered_map<string,vector<unsigned int>> siteNodeConsume;
-    unsigned int preConsume = 0;
     //vector<vector<pair<string, int>>> result;
     for(auto _siteNodeName : siteNode){
         vector<unsigned int> _Vtemp(preFrameResult.size(),0);  //直接指定每个边缘节点的消耗历史记录表的大小
@@ -154,7 +151,6 @@ unsigned int Base::getScore(){
     unsigned int _95nth = ceil(demand.size() * 0.95); //求百分之九十五位
     unordered_map<string,int> preSiteNode95thConsume;
     for(auto _siteNodeName : siteNode){
-        unsigned int the95NodeConsume;
         nth_element(siteNodeConsume.at(_siteNodeName).begin(),
                     siteNodeConsume.at(_siteNodeName).begin()+_95nth-1,
                     siteNodeConsume.at(_siteNodeName).end());
@@ -242,7 +238,7 @@ void Base::solve() {
 //			_largestMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, resultCustom, siteCnt, maxFree, flag);
             // _weightMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, 
             //                 preFramePreDemandResult, *curLayer);
-			if(judgeRestFree(demandUsableSiteIndex, maxFree)) { // 只要还有可以最大分配的边缘节点，先最大分配
+			if(judgeRestFree(demandUsableSiteIndex, siteCnt, maxFree)) { // 只要还有可以最大分配的边缘节点，先最大分配
 				_largestMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, 
                                 preFramePreDemandResult, siteCnt, maxFree, flag, usedSiteIndex);
                 if(flag) { // 有未被分配的带宽，该轮demand还需要平均分配
@@ -457,9 +453,9 @@ void Base::_weightDistribution(int demandNow,
  * @return true 
  * @return false 
  */
-bool Base::judgeRestFree(vector<int> siteCnt, int _maxFree) {
-		for(auto& _usedCnt : siteCnt) {
-			if( _usedCnt <= _maxFree) {
+bool Base::judgeRestFree(vector<int>& _demandUsableSiteIndex ,vector<int>& _siteCnt, int _maxFree){
+		for(auto& index : _demandUsableSiteIndex){
+			if( _siteCnt[index] <= _maxFree){
 				return true;
 			}
 		}

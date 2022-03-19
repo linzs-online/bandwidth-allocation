@@ -24,12 +24,11 @@ private:
     unordered_map<string, vector<int>> site2demand;
     unordered_map<string, vector<int>> demand2site;
     int qos_constraint;
-    vector<vector<pair<string, int>>> result;
 	unordered_map<string, vector<int>> usableSite; // 客户节点可以用的边缘节点；
-    
     vector<Paramerter::Ptr> _layers;
 
 public:
+    vector<vector<pair<string, int>>> result;
     Base(string&& _filePath);
     void solve();
     void save(string&& _fileName);
@@ -53,7 +52,7 @@ public:
                         const vector<int>& demandUsableSite,
                         vector<pair<string, int>>& result,
                         Paramerter::Ptr weight) const;
-    unsigned int getScore();
+    unsigned int getScore(vector<vector<pair<string, int>>>& result);
 
 private:
     void _weightDistribution(int demandNow,
@@ -62,8 +61,9 @@ private:
                         const vector<int>& demandUsableSite,
                         unordered_map<string, int>& record, 
                         Paramerter::Ptr weight) const;
-	bool judgeRestFree(vector<int> siteCnt, int maxFree);
-    void getPreFrameResult(vector<unordered_map<string,vector<pair<string, int>>>>& _preFrameResult);
+	bool judgeRestFree(vector<int>& _demandUsableSiteIndex ,vector<int>& _siteCnt, int _maxFree);
+    void getPreFrameResult(vector<unordered_map<string,vector<pair<string, int>>>>& _preFrameResult,
+                           vector<vector<pair<string, int>>>& result);
 
 };
 
