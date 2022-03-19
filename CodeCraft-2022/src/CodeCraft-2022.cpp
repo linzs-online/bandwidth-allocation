@@ -238,7 +238,8 @@ int main() {
 	dataInit.save("solution.txt");
 
     cout << dataInit.getScore() << endl;
-    cout << "所有程序运行时间: " << clockCaculate.toc()  << "s" << endl;
+    
+    cout << "所有程序运行时间: " << clockCaculate.toc()  << "ms" << endl;
 	return 0;
 }
 
@@ -356,6 +357,9 @@ void Base::_largestMethod(int &demandNow,
             siteNodeBand[demandUsableSite[j]] = 0;
             result.push_back(x);
 			usedSite.insert(demandUsableSite[j]);
+            if(j == demandUsableSite.size() - 1) {
+                flag = true;
+            }
         }
     }
 	for(int it : usedSite){
