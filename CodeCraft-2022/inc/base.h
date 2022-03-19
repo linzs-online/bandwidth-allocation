@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cstdio>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include "paramter.h"
 
@@ -11,6 +12,7 @@ using std::vector;
 using std::string;
 using std::unordered_map;
 using std::pair;
+using std::unordered_set;
 
 class Base{
 private:
@@ -61,9 +63,7 @@ private:
                         unordered_map<string, int>& record, 
                         Paramerter::Ptr weight) const;
 	bool judgeRestFree(vector<int> siteCnt, int maxFree);
-    vector<unordered_map<string,vector<pair<string, int>>>> getPreFrameResult();
+    void getPreFrameResult(vector<unordered_map<string,vector<pair<string, int>>>>& _preFrameResult);
 
 };
 
-
-void test(string&& _filePath);

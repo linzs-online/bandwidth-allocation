@@ -2,12 +2,10 @@
 #include <sstream>
 #include <algorithm>
 #include <math.h>
-#include <unordered_set>
 #include "../inc/base.h"
 
 using std::istringstream;
 using std::ofstream;
-using std::unordered_set;
 
 string temp,line;
 
@@ -69,14 +67,6 @@ void Base::demandNodeInit(string&& _filePath){
     //cout << "demandNode Inited " << demandNode.size() << endl;
 }
 
-void test(string&& _filePath){
-    std::ifstream demandfile(_filePath, std::ios::in);
-    string temp1,temp2,temp3;
-    getline(demandfile, temp1,'\r');
-    getline(demandfile, temp2,'\n');
-    getline(demandfile, temp3);
-}
-
 void Base::qosInit(string&& _filePath){
     std::ifstream qosfile(_filePath, std::ios::in);
     getline(qosfile, temp);
@@ -107,6 +97,7 @@ void Base::qosInit(string&& _filePath){
     //cout << "preSite2demand Inited " << site2demand.at("A")[2] << endl;
 }
 
+
 void Base::qosConstraintInit(string&& _filePath){
     std::ifstream qos_constraintfile(_filePath, std::ios::in);
     while(getline(qos_constraintfile,temp,'='));
@@ -118,11 +109,9 @@ void Base::qosConstraintInit(string&& _filePath){
  * 
  * @return vector<unordered_map<string,vector<pair<string,  int>>>> 
  */
-vector<unordered_map<string,vector<pair<string,  int>>>> Base::getPreFrameResult(){
-    //vector<vector<pair<string, int>>> result;
+void Base::getPreFrameResult(vector<unordered_map<string,vector<pair<string,  int>>>>& _preFrameResult){
     unordered_map<string,vector<pair<string,  int>>> _preFramePreDemandPlan;
     //用总帧数量指定存放结果的vector大小
-    vector<unordered_map<string,vector<pair<string,  int>>>> _preFrameResult;
     int demandNodeSize = demandNode.size();
     int index = 0;  //客户节点名称序号
     int resultSize = result.size();
@@ -136,7 +125,6 @@ vector<unordered_map<string,vector<pair<string,  int>>>> Base::getPreFrameResult
             _preFramePreDemandPlan.clear(); //把每帧的分配结果缓冲清零
         }
     }
-    return _preFrameResult;
 }
 /**
  * @brief 获取得分
@@ -144,7 +132,8 @@ vector<unordered_map<string,vector<pair<string,  int>>>> Base::getPreFrameResult
  * @return unsigned int 
  */
 unsigned int Base::getScore(){
-    vector<unordered_map<string,vector<pair<string, int>>>> preFrameResult = this->getPreFrameResult();
+    vector<unordered_map<string,vector<pair<string, int>>>> preFrameResult;
+    this->getPreFrameResult(preFrameResult);
     unordered_map<string,vector<unsigned int>> siteNodeConsume;
     unsigned int preConsume = 0;
     //vector<vector<pair<string, int>>> result;
@@ -243,6 +232,7 @@ void Base::solve() {
 	vector<int> siteCnt(siteNode.size(), 0); //记录每个边缘节点使用的次数
 	int maxFree = floor(demand.size() * 0.05) - 1; //向下取整，相当于向上取整取前5%，可以免费使用的每个边缘节点的次数
 	bool flag = false; // 最大分配后是否还有带宽未被分配
+    auto curLayer = _layers.begin();
     for(auto demandFrame : demand){  //从请求列表中一帧一帧取出来
         vector<int> siteNodeBandwidthCopy = siteNodeBandwidth; //边缘节点带宽量的拷贝，每一轮拷贝一次
         unordered_set<int> usedSiteIndex; //用于记录当前帧被最大分配使用的边缘节点的序号
@@ -250,17 +240,22 @@ void Base::solve() {
             vector<pair<string, int>> preFramePreDemandResult; // 用于存储每一帧中的每一客户节点流量请求分发的结果
             vector<int> demandUsableSiteIndex = usableSite.at(demandNode[i]); // 获取当前客户节点可用的边缘节点序号
 //			_largestMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, resultCustom, siteCnt, maxFree, flag);
-//          _avergeMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, resultCustom);
+            // _weightMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, 
+            //                 preFramePreDemandResult, *curLayer);
 			if(judgeRestFree(demandUsableSiteIndex, maxFree)) { // 只要还有可以最大分配的边缘节点，先最大分配
-				_largestMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, preFramePreDemandResult, siteCnt, maxFree, flag, usedSiteIndex);
+				_largestMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, 
+                                preFramePreDemandResult, siteCnt, maxFree, flag, usedSiteIndex);
                 if(flag) { // 有未被分配的带宽，该轮demand还需要平均分配
-					_avergeMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, preFramePreDemandResult);
+					_weightMethod(demandFrame[i], siteNodeBandwidthCopy, 
+                                demandUsableSiteIndex, preFramePreDemandResult, *curLayer);
 					flag = false;
 				}
 			}
 			else{ //所有边缘节点免费使用次数白嫖完成，剩下的流量请求使用平均分配的方式
-				_avergeMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex, preFramePreDemandResult);
+				_weightMethod(demandFrame[i], siteNodeBandwidthCopy, 
+                        demandUsableSiteIndex, preFramePreDemandResult, *curLayer);
 			}
+            curLayer++;
             result.push_back(preFramePreDemandResult); //当前时刻当前客户节点流量请求分配方案存入结果
         }
         //一帧的所有客户节点的流量请求处理完成，对在最大分配方案中使用过的边缘节点记录一次
