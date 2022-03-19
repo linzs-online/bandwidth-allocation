@@ -5,6 +5,11 @@
 #include <vector>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
+#include <math.h>
+#include "../inc/tic_toc.h"
+
+
 
 using namespace std;
 string temp,line;
@@ -21,6 +26,7 @@ private:
     int qos_constraint;
     vector<vector<pair<string, int>>> result;
 	unordered_map<string, vector<int>> usableSite; // 客户节点可以用的边缘节点；
+
 public:
     Base(string&& _filePath);
     void solve();
@@ -47,6 +53,9 @@ public:
                         const vector<int>& demandUsableSite,
                         unordered_map<string, int>& record) const;
 	bool judgeRestFree(vector<int> siteCnt, int maxFree);
+    vector<unordered_map<string,vector<pair<string, int>>>> getPreFrameResult();
+    unsigned int getScore();
+
 };
 
 void test(string&& _filePath);
@@ -65,7 +74,6 @@ Base::Base(string&& _filePath){
 	findUsableSite();
 }
 
-
 void Base::siteNodeInit(string&& _filePath){
     std::ifstream site_bandwidthfile(_filePath, std::ios::in);
     std::string line,siteNoteName,siteNodeBW;
@@ -81,7 +89,6 @@ void Base::siteNodeInit(string&& _filePath){
         pair<string,int> _frame(siteNoteName, siteNodeBW_int);
         siteBandWith.insert(_frame);  // 把边缘节点和它的带宽封装成unordermap
     };
-    
     //cout << "siteNodeBandWith Inited " <<  siteBandWith.at("9") << endl;
 }
 
@@ -144,7 +151,6 @@ void Base::qosInit(string&& _filePath){
         demand2site.insert(pre_demand2site);
         preDemand2site.clear();
     }
-
     //cout << "preSite2demand Inited " << site2demand.at("A")[2] << endl;
 }
 
@@ -154,19 +160,87 @@ void Base::qosConstraintInit(string&& _filePath){
     qos_constraint = atoi(temp.c_str());
     //cout << "qos_constraint = " <<  qos_constraint << endl;
 }
+/**
+ * @brief 把每帧的结果放在一个vector里面，里面的存放形式是：客户节点-分配方案
+ * 
+ * @return vector<unordered_map<string,vector<pair<string,  int>>>> 
+ */
+vector<unordered_map<string,vector<pair<string,  int>>>> Base::getPreFrameResult(){
+    //vector<vector<pair<string, int>>> result;
+    unordered_map<string,vector<pair<string,  int>>> _preFramePreDemandPlan;
+    //用总帧数量指定存放结果的vector大小
+    vector<unordered_map<string,vector<pair<string,  int>>>> _preFrameResult;
+    int demandNodeSize = demandNode.size();
+    int index = 0;  //客户节点名称序号
+    int resultSize = result.size();
+    for(auto _result: result){
+        //客户节点 - 分配方案
+        pair<string,vector<pair<string,  int>>> _temp(demandNode[index++],_result);
+        _preFramePreDemandPlan.insert(_temp);
+        if(index == demandNodeSize){ //每帧检查
+            _preFrameResult.emplace_back(_preFramePreDemandPlan);//已经取完一帧的数据了
+            index = 0;  //序号清零
+            _preFramePreDemandPlan.clear(); //把每帧的分配结果缓冲清零
+        }
+    }
+    return _preFrameResult;
+}
+/**
+ * @brief 获取得分
+ * 
+ * @return unsigned int 
+ */
+unsigned int Base::getScore(){
+    vector<unordered_map<string,vector<pair<string, int>>>> preFrameResult = this->getPreFrameResult();
+    unordered_map<string,vector<unsigned int>> siteNodeConsume;
+    unsigned int preConsume = 0;
+    //vector<vector<pair<string, int>>> result;
+    for(auto _siteNodeName : siteNode){
+        vector<unsigned int> _Vtemp(preFrameResult.size(),0);  //直接指定每个边缘节点的消耗历史记录表的大小
+        pair<string,vector<unsigned int>> _temp(_siteNodeName,_Vtemp);
+        siteNodeConsume.insert(_temp);  //初始化一个unordermap用来存放每个边缘节点的消耗历史
+    }
+    int frameInedx = 0;
+    for(auto& frame : preFrameResult){
+        for(auto& dNodeResult: frame){ //每帧中，每个客户节点对应的边缘节点的分配方案
+            for(auto& pair : dNodeResult.second){ //把分配方案中边缘节点的流量分发汇总
+                siteNodeConsume.at(pair.first)[frameInedx] += pair.second;
+            }
+        }
+        frameInedx++; //一帧的数据处理完成了，把帧序号递增
+    }
+    unsigned int _95nth = ceil(demand.size() * 0.95); //求百分之九十五位
+    unordered_map<string,int> preSiteNode95thConsume;
+    for(auto _siteNodeName : siteNode){
+        unsigned int the95NodeConsume;
+        nth_element(siteNodeConsume.at(_siteNodeName).begin(),
+                    siteNodeConsume.at(_siteNodeName).begin()+_95nth-1,
+                    siteNodeConsume.at(_siteNodeName).end());
+        pair<string,int> _temp(_siteNodeName,siteNodeConsume.at(_siteNodeName)[_95nth-1]);
+        preSiteNode95thConsume.insert(_temp);
+    }
+    unsigned int totalConsume = 0;
+    for(unordered_map<string,int>::iterator it = preSiteNode95thConsume.begin(); it != preSiteNode95thConsume.end(); it++){
+        totalConsume += it->second;
+    }
+    return totalConsume;
+}
+
 
 
 int main() {
+    TicToc clockCaculate;
     //test("../../data/demand.csv");
     //Base dataInit("/Users/dengyinglong/bandwidth-allocation/data/");
     Base dataInit("../data/");
 	dataInit.solve();
 	//dataInit.save("solution.txt");
 	dataInit.save("solution.txt");
+
+    cout << dataInit.getScore() << endl;
+    cout << "所有程序运行时间: " << clockCaculate.toc()  << "s" << endl;
 	return 0;
 }
-
-
 
 void Base::save(string&& _fileName) {
     ofstream file(_fileName, ios_base::out);
