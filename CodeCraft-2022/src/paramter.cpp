@@ -1,6 +1,8 @@
 #include <random>
 #include <unordered_map>
 #include <unordered_set>
+#include <chrono>
+#include <assert.h>
 #include "../inc/paramter.h"
 
 
@@ -11,6 +13,10 @@
  */
 void Paramerter::softmax(size_t start, float offValue) {
         float sum = std::accumulate(value.begin() + start, value.end(), 0.0f);
+        if(sum == 0) {
+            init(value.size());
+            return;
+        }
         for (size_t i = start; i < value.size(); i++) {
             if (offValue != 0.0f) {
                 float tmp = value[i] + (value[i] / sum) * offValue;
@@ -29,18 +35,28 @@ void Paramerter::softmax(size_t start, float offValue) {
 
 
 void Paramerter::normal(double mean, double stddev) {
-    std::random_device rd{};
-    std::mt19937 gen{rd()};
+    // std::random_device rd{};
+    auto time = std::chrono::system_clock::now().time_since_epoch().count();
+    std::mt19937 gen{time};
     std::normal_distribution<> rng{mean, stddev};
     for (size_t i = 0; i < value.size(); i++) {
         value[i] = std::abs(rng(gen));
     }
 }
 
+void Paramerter::init(size_t threshold) {
+    auto time = std::chrono::system_clock::now().time_since_epoch().count();
+    std::mt19937 gen{time};
+    size_t id = gen() % threshold;
+    value[id] = 1;
+}
+
+
 //unordered_map<string,pair<int,vector<double>>> siteLogMap;
 SiteLog::SiteLog(vector<string> _siteNodeName, vector<int> _siteNodeBandWith, int _frameSize):siteNodeName(_siteNodeName){
     //边缘节点的带宽，用于计算每个边缘节点的利用率
-    for(auto i = 0; i < _siteNodeBandWith.size(); i++){
+    int temp = _siteNodeBandWith.size();
+    for(int i = 0; i < temp; i++){
         pair<string,int> _temp(_siteNodeName[i], _siteNodeBandWith[i]);
         sitBandWithMap.insert(_temp);
     }
@@ -50,28 +66,43 @@ SiteLog::SiteLog(vector<string> _siteNodeName, vector<int> _siteNodeBandWith, in
         pair<string,pair<int,vector<double>>> _history(nodeName,_pair);
         siteLogMap.insert(_history);
     }
-}
-//unordered_map<string,pair<int,vector<double>>> siteLogMap;
-void SiteLog::write2Log(vector<vector<pair<string, int>>>::iterator itFirst,
-                        vector<vector<pair<string, int>>>::iterator itEnd, int frameID){
-    //记录每个边缘节点在这一帧中的带宽分配总量
-    unordered_map<string, int> nowFrameSiteUsed;
-    //记录这一帧使用过的边缘节点的名字
-    unordered_set<string> nowFrameSiteName;
     for(auto& name : siteNodeName){
         pair<string,int> _temp(name,0);
         nowFrameSiteUsed.insert(_temp);
     }
-    for(auto it = itEnd; it != itFirst; it--){
-        for(auto perDresut = it->begin(); perDresut != it->end(); perDresut++){
-            nowFrameSiteName.insert(perDresut->first);
-            nowFrameSiteUsed[perDresut->first] += perDresut->second;
+}
+void SiteLog::write2Log(vector<pair<string, int>> _Result, size_t frameID){
+    //说明当前还在处理同一帧的分配结果
+    if(oldFrameId == frameID){
+        for(auto _pair : _Result){
+            nowFrameSiteName.insert(_pair.first);
+            nowFrameSiteUsed.at(_pair.first) += _pair.second;
         }
     }
-    for(auto siteName : nowFrameSiteName){
-        siteLogMap.at(siteName).first++;
-        double x = nowFrameSiteUsed.at(siteName); //隐式转换
-        double y = sitBandWithMap.at(siteName);
-        siteLogMap.at(siteName).second[frameID] = x/y; //返回使用率
+    else{ //已经是新的一帧了,先把上一帧的数据进行一次统计
+        for(auto siteName : nowFrameSiteName){
+            siteLogMap.at(siteName).first++; //使用次数
+            double x = nowFrameSiteUsed.at(siteName); //隐式转换
+            double y = sitBandWithMap.at(siteName);
+            siteLogMap.at(siteName).second[oldFrameId] = x/y; //返回使用率
+        }
+        oldFrameId = frameID;
+        //清理上一帧的缓存
+        nowFrameSiteName.clear();
+        for(auto it = nowFrameSiteUsed.begin(); it != nowFrameSiteUsed.end(); it++){
+            it->second = 0;
+        }
+        //处理当前帧进来的第一个客户请求分配方案
+        for(auto _pair : _Result){
+            nowFrameSiteName.insert(_pair.first);
+            nowFrameSiteUsed.at(_pair.first) += _pair.second;
+        }
+    }
+}
+
+void SiteLog::logClear(){
+    for(auto siteName : siteNodeName){
+        siteLogMap.at(siteName).first = 0; 
+        fill(siteLogMap.at(siteName).second.begin(),siteLogMap.at(siteName).second.end(),0);
     }
 }
