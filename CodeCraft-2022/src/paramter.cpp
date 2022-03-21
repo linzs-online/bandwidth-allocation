@@ -106,3 +106,31 @@ void SiteLog::logClear(){
         fill(siteLogMap.at(siteName).second.begin(),siteLogMap.at(siteName).second.end(),0);
     }
 }
+
+
+int Optim::mean() {
+    int64_t avr = 0;
+    for(size_t i = 0; i < value.size(); ++i) {
+        avr += (value[i].first - avr) / (i + 1);
+    }
+    return avr;
+}
+
+
+uint32_t Optim::mid() {
+    size_t n = value.size();
+    auto mid = value.begin() + n / 2;
+    std::nth_element(value.begin(), mid, value.end(), 
+            [](Optim::DataType a, Optim::DataType b) { return a.first < b.first;});
+    return mid->first;
+}
+
+
+void Optim::step(int _mean) {
+    for (size_t i = 0; i < value.size(); ++i) {
+        value[i].second += float(_mean - value[i].first) / 1000;
+        if (value[i].second < 0.0f) {
+            value[i].second = 0.0f;
+        }
+    }
+}

@@ -6,9 +6,8 @@
 #include "../inc/base.h"
 #include "../inc/tic_toc.h"
 
-using std::istringstream;
-using std::ofstream;
 
+using namespace std;
 string temp,line;
 
 
@@ -44,6 +43,7 @@ void Base::siteNodeInit(string&& _filePath){
         siteNodeBandwidth.push_back(siteNodeBW_int);
         pair<string,int> _frame(siteNoteName, siteNodeBW_int);
         siteBandWith.insert(_frame);  // 把边缘节点和它的带宽封装成unordermap
+        _optimMap.emplace(std::move(siteNoteName), std::move(Optim()));
     };
     //cout << "siteNodeBandWith Inited " <<  siteBandWith.at("9") << endl;
 }
@@ -179,7 +179,7 @@ void Base::paramInit() {
         l->value.assign(number, 0);
         l->init(number);
         l->softmax();
-        _layers.emplace_back(l);
+        _layers.emplace_back(std::move(l));
     }
 }
 
@@ -290,7 +290,7 @@ void Base::solveMaxAndWeight() {
 void Base::solve() {
 	TicToc tictoc;
 
-	int L = 2000; // 最大迭代次数
+	int L = 10; // 最大迭代次数
 	float T = 1.0;
 	float endT = 1e-16;
 	bool flag = true; // 用作代表第一次迭代
@@ -360,26 +360,6 @@ void Base::_largestMethod(int &demandNow,
     }
 }
 
-/**
- * @brief 权重策略进行分配
- * @param demanNow 某个客户需求量
- */
-void Base::_weightMethod(int demandNow,
-            vector<int>& siteNodeBand, 
-            const vector<int>& demandUsableSite, 
-            vector<pair<string, int>>& result,
-            Paramerter::Ptr weight) const {
-    unordered_map<string, int> record;
-    _weightDistribution(demandNow, demandNow, siteNodeBand, 
-                demandUsableSite, record, weight);
-    auto it = record.cbegin();
-    while (it != record.cend()) {
-        pair<string, int> tmp(it->first, it->second);
-        result.emplace_back(tmp);
-        it++;
-    }
-}
-
 
 /**
  * @brief 查询边缘节点已分配带宽
@@ -390,6 +370,33 @@ static inline int _totalBand(const string& key, const
         return record.at(key);
     }
     return 0;
+}
+
+
+/**
+ * @brief 权重策略进行分配
+ * @param demanNow 某个客户需求量
+ */
+void Base::_weightMethod(int demandNow,
+            vector<int>& siteNodeBand, 
+            const vector<int>& demandUsableSite, 
+            vector<pair<string, int>>& result,
+            Paramerter::Ptr weight) {
+    unordered_map<string, int> record;
+    _weightDistribution(demandNow, demandNow, siteNodeBand, 
+                demandUsableSite, record, weight);
+    for (size_t i = 0; i < demandUsableSite.size(); ++i) {
+        int site = demandUsableSite[i];
+        int band = _totalBand(siteNode[site], record);
+        // 权重记录
+        Optim::DataType data(band, weight->value[i]);
+        _optimMap.at(siteNode[site]).value.emplace_back(std::move(data));
+        // 分配方案保存
+        if (band != 0) {
+            pair<string, int> tmp(siteNode[site], band);
+            result.emplace_back(std::move(tmp));
+        }
+    }
 }
 
 
@@ -580,7 +587,7 @@ void Base::simulatedAnnealing(bool &flag, float &T) {
 	float dT = 0.99;
 	vector<vector<pair<string, int>>> resultNow;
 	auto curLayer = _layers.begin();
-	auto modifyLayers = randomLayer(0, demand.size() - 1, demand.size() * 0.3);
+	// auto modifyLayers = randomLayer(0, demand.size() - 1, demand.size() * 0.3);
     
     log->logClear();
 	
@@ -593,16 +600,16 @@ void Base::simulatedAnnealing(bool &flag, float &T) {
 			vector<int> demandUsableSiteIndex = usableSite.at(demandNode[j]); // 当前客户节点连接的边缘节点
 			_weightMethod(demandFrame[j], siteNodeBandwidthCopy, demandUsableSiteIndex,
 						  preFramePreDemandResult, *curLayer);                          
-            log->write2Log(preFramePreDemandResult, i); 
+            // log->write2Log(preFramePreDemandResult, i); 
 			// 对当前层的客户节点权重进行更新
-			if(find(modifyLayers.begin(), modifyLayers.end(), i) != modifyLayers.end() and flag == false) {
-				updateWeight(*curLayer, demandUsableSiteIndex, i + 1);
-			}
+			// if(find(modifyLayers.begin(), modifyLayers.end(), i) != modifyLayers.end() and flag == false) {
+			// 	updateWeight(*curLayer, demandUsableSiteIndex, i + 1);
+			// }
 			resultNow.emplace_back(preFramePreDemandResult);
 			++curLayer;
 		}
-        
 	}
+    _updateAllWeight();
 	if(flag) {
 		// 第一次迭代
 		result = resultNow;
@@ -623,4 +630,22 @@ void Base::simulatedAnnealing(bool &flag, float &T) {
 	}
     cout << "当前迭代得分: " << getScore(resultNow) << endl;
 	T *= dT;
+}
+
+
+/**
+ *@brief 更新所有权重 
+ */
+void Base::_updateAllWeight() {
+    for (auto& site: siteNode) {
+        Optim& op = _optimMap.at(site);
+        if (op.value.empty()) {
+            continue;
+        }
+        int mean = op.mean();
+        op.step(mean);
+    }
+    for (auto& l: _layers) {
+        l->softmax();
+    }
 }

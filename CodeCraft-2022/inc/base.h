@@ -26,7 +26,7 @@ private:
     vector<Paramerter::Ptr> _layers; // 所有层的权重, 是一个二维数组，外层的vector是所有时刻下客户节点顺序排列
     SiteLog::Ptr log;
 	vector<unordered_map<string, vector<int>>> _Weights;
-    
+    unordered_map<string, Optim> _optimMap;
 
 public:
     vector<vector<pair<string, int>>> result;
@@ -59,7 +59,7 @@ public:
                         vector<int>& siteNodeBand,
                         const vector<int>& demandUsableSite,
                         vector<pair<string, int>>& result,
-                        Paramerter::Ptr weight) const;
+                        Paramerter::Ptr weight);
     unsigned int getScore(vector<vector<pair<string, int>>>& result);
     void updateWeight(Paramerter::Ptr weight, vector<int> demandUsableSiteIndex, size_t frameId);
 	void simulatedAnnealing(bool &flag, float &T);
@@ -74,6 +74,7 @@ private:
 	bool judgeRestFree(vector<int>& _demandUsableSiteIndex ,vector<int>& _siteCnt, int _maxFree);
     void getPreFrameResult(vector<unordered_map<string,vector<pair<string, int>>>>& _preFrameResult,
                            vector<vector<pair<string, int>>>& result);
+    void _updateAllWeight();
 
 };
 

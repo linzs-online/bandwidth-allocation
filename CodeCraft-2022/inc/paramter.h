@@ -3,8 +3,15 @@
 #include <memory>
 #include <vector>
 #include <numeric>
+#include <algorithm>
 
-using namespace std;
+
+using std::vector;
+using std::string;
+using std::unordered_map;
+using std::pair;
+using std::unordered_set;
+
 class Paramerter {
 public:
     using Ptr = std::shared_ptr<Paramerter>;
@@ -32,4 +39,16 @@ public:
     SiteLog(vector<string> _siteNodeName, vector<int> _siteNodeBandWith, int _frameSize);
     void write2Log(vector<pair<string, int>> _Result, size_t frameID);
     void logClear();
+};
+
+
+class Optim {
+public:
+    using Ptr = std::shared_ptr<Optim>;
+    using DataType = pair<uint32_t, float&>;
+    vector<DataType> value;
+    Optim() {};
+    int mean();
+    uint32_t mid();
+    void step(int _mean);
 };
