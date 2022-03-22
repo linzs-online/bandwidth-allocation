@@ -2,6 +2,11 @@
 #include <sstream>
 #include <algorithm>
 #include <math.h>
+<<<<<<< Updated upstream
+=======
+#include <assert.h>
+#include <random>
+>>>>>>> Stashed changes
 #include "../inc/base.h"
 #include "../inc/tic_toc.h"
 
@@ -40,6 +45,10 @@ void Base::siteNodeInit(string&& _filePath){
         siteNodeBandwidth.push_back(siteNodeBW_int);
         pair<string,int> _frame(siteNoteName, siteNodeBW_int);
         siteBandWith.insert(_frame);  // 把边缘节点和它的带宽封装成unordermap
+<<<<<<< Updated upstream
+=======
+        _optimMap.emplace(std::move(siteNoteName), Optim());
+>>>>>>> Stashed changes
     };
     //cout << "siteNodeBandWith Inited " <<  siteBandWith.at("9") << endl;
 }
@@ -265,7 +274,7 @@ void Base::findUsableSite() {
 /**
  * @brief 模拟退火版solve
  */
-void Base::solve() {
+void Base::solveAnnealing() {
 	TicToc tictoc;
 
 	int L = 20000; // 最大迭代次数
@@ -515,6 +524,10 @@ void updateWeight(Paramerter::Ptr weight, vector<int> demandUsableSiteIndex) {
 		weight->value[i] *= a;
 	}
 	weight->softmax();
+<<<<<<< Updated upstream
+=======
+    
+>>>>>>> Stashed changes
 }
 
 
@@ -537,7 +550,11 @@ void Base::simulatedAnnealing(bool flag, float &T) {
 			vector<int> demandUsableSiteIndex = usableSite.at(demandNode[j]); // 当前客户节点连接的边缘节点
 			_weightMethod(demandFrame[j], siteNodeBandwidthCopy, demandUsableSiteIndex,
 						  preFramePreDemandResult, *curLayer);
+<<<<<<< Updated upstream
 
+=======
+            // log->write2Log(preFramePreDemandResult, i);
+>>>>>>> Stashed changes
 			// 对当前层的客户节点权重进行更新
 			if(find(modifyLayers.begin(), modifyLayers.end(), i) != modifyLayers.end()and flag == false) {
 				updateWeight(*curLayer, demandUsableSiteIndex);
@@ -568,4 +585,165 @@ void Base::simulatedAnnealing(bool flag, float &T) {
 	}
 
 	T *= dT;
+}
+<<<<<<< Updated upstream
+=======
+
+
+/**
+ *@brief 更新所有权重 
+ */
+void Base::_updateAllWeight() {
+    for (auto& site: siteNode) {
+        Optim& op = _optimMap.at(site);
+        if (op.value.empty()) {
+            continue;
+        }
+        int mean = op.mean();
+        op.step(mean);
+    }
+    for (auto& l: _layers) {
+        l->softmax();
+    }
+}
+
+double randomVal(double min, double max) {
+	uint64_t time = std::chrono::system_clock::now().time_since_epoch().count();
+	std::mt19937 gen(time);
+	std::uniform_real_distribution<double> dist(min, max);
+
+	return dist(gen);
+}
+
+
+/**
+ * @brief 为边缘节点生成一个时刻的随机权重
+ * @param min
+ * @param max
+ * @param size
+ * @return
+ */
+vector<double> randomWeight(int min, int max, int size) {
+	vector<double> perFrameRandomWeight;
+	uint64_t time = std::chrono::system_clock::now().time_since_epoch().count();
+	std::mt19937 gen(time);
+	std::uniform_real_distribution<double> dist(min, max);
+	perFrameRandomWeight.reserve(size);
+	for (int i = 0; i < size; ++i) {
+		perFrameRandomWeight.emplace_back(dist(gen));
+	}
+
+	return perFrameRandomWeight;
+}
+
+
+void Base::solveWeight() {
+	auto curLayer = _layers.begin();
+	vector<vector<pair<string, int>>> resultNow;
+
+	for (size_t i = 0; i < demand.size(); ++i) {
+		auto demandFrame = demand[i];
+		auto dSize = demandNode.size();
+		vector<int> siteNodeBandwidthCopy = siteNodeBandwidth;
+		for (size_t j = 0; j < demandFrame.size(); ++j) {
+			vector<pair<string, int>> perFramePerDemandResult;
+			vector<int> demandUsableSiteIndex = usableSite.at(demandNode[j]);
+			_weightMethod(demandFrame[j], siteNodeBandwidthCopy, demandUsableSiteIndex,
+						  perFramePerDemandResult, *curLayer);
+			resultNow.emplace_back(perFramePerDemandResult);
+			++curLayer;
+		}
+	}
+
+	result = resultNow;
+}
+
+/**
+ * @brief 选择不同方法进行流量分配
+ * @param name max or weight
+ */
+void Base::_bandAllocate(const string& name) {
+	if(name == "Max") {
+		solveMaxAndWeight();
+	}
+	else if(name == "Weight") {
+		solveWeight();
+	}
+	else{
+		cerr << "name must be Max or weight" << endl;
+		return;
+	}
+}
+
+vector<pair<double, double>> computeAverage(unordered_map<string, Optim> _optimMap, vector<string> siteNode, int maxFree) {
+	vector<pair<double, double>> siteAvrVec;
+	for(auto & node : siteNode) { // 遍历边缘节点
+		auto siteMap = _optimMap.at(node).value;
+		sort(siteMap.begin(), siteMap.end(), [](Optim::DataType a, Optim::DataType b) {return a.first > b.first;});
+		double sum5 = 0.0, sum95 = 0.0;
+		for (int i = 0; i < maxFree; ++i) {
+			sum5 += siteMap[i].first;
+		}
+		double avr5 = sum5 / maxFree;
+		for (int i = maxFree; i < siteMap.size(); ++i) {
+			sum95 += siteMap[i].first;
+		}
+		double avr95 = sum95 / siteMap.size();
+		pair<double, double> perSiteAvrVec(avr5, avr95);
+		siteAvrVec.emplace_back(perSiteAvrVec);
+	}
+
+	return siteAvrVec;
+}
+
+double computeFitness(double x_hat, double y_hat) {
+	double fitness = 0.3 * x_hat * x_hat - 0.3 * y_hat * y_hat + 0.4 * (x_hat - y_hat) * (x_hat - y_hat);
+
+	return fitness;
+}
+
+//void Base::_differentialEvoMethod(unordered_map<string, Optim> _optimMap, size_t Gm) {
+//	// 初始化参数
+//	size_t NP = siteNode.size(); // 种群数量
+//	size_t G = 2000; // 最大迭代次数
+//	double lam = exp(1 - (float)Gm / (float)(Gm + 1 - G));
+//	double F = 0.5 * pow(2, lam);
+//	double CR = 0.1 * (1 + randomVal(0, 1)) * F;
+//
+//	vector<pair<double, double>> siteAvrVec = computeAverage(_optimMap, siteNode, maxFree); // 边缘节点的5，95平均值
+//	for(auto & node : siteNode) { // 遍历边缘节点
+//		// 变异
+////		auto siteWeight = _optimMap[node].value;
+//		auto siteConnectIndex = siteConnectDemand.at(node);
+//		// 产生一个随机变异个体
+//		int weightSize = siteConnectIndex.size();
+//		vector<vector<double>> perSiteWeight; // 保存了一个边缘节点
+//		for (size_t i = 0; i < demand.size(); ++i) {
+//			auto perSitePerFrameWeight = randomWeight(0, 1, weightSize);
+//			perSiteWeight.emplace_back(perSitePerFrameWeight);
+//		}
+//
+//		// 交叉
+//		// 每个时刻都要进行一次交叉
+//		for (int i = 0; i < demand.size(); ++i) {
+//			for (int j = 0; j < siteConnectIndex.size(); ++j) { // 遍历连接的客户节点
+//				double ran = randomVal(0, 1);
+//				if(ran < CR) {
+//					_optimMap.at(node).value[i * siteConnectIndex.size() + j].second = perSiteWeight[i][j];
+//				}
+//			}
+//		}
+//	}
+//
+//
+//
+//}
+
+
+void Base::solve() {
+	maxFree = floor(demand.size() * 0.05);
+
+	// 先分配
+
+	// 再进化
 }

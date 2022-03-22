@@ -28,10 +28,16 @@ private:
     vector<Paramerter::Ptr> _layers; // 所有层的权重, 是一个二维数组，外层的vector是所有时刻下客户节点顺序排列
 
 	vector<unordered_map<string, vector<int>>> _Weights;
+    SiteLog::Ptr log;
+    unordered_map<string, Optim> _optimMap;
+	unordered_map<string, vector<string>> siteConnectDemand;
 
 public:
     vector<vector<pair<string, int>>> result;
     Base(string&& _filePath);
+
+//    void solveMaxFree();
+    void solveMaxAndWeight();
     void solve();
     void save(string&& _fileName);
     ~Base() {};
@@ -56,6 +62,9 @@ public:
                         Paramerter::Ptr weight) const;
     unsigned int getScore(vector<vector<pair<string, int>>>& result);
 	void simulatedAnnealing(bool flag, float &T);
+    void updateWeight(Paramerter::Ptr weight, vector<int> demandUsableSiteIndex, size_t frameId);
+	void simulatedAnnealing(bool &flag, float &T);
+	void _differentialEvoMethod(unordered_map<string, Optim> _optimMap, size_t Gm);
 
 private:
     void _weightDistribution(int demandNow,
@@ -68,5 +77,10 @@ private:
     void getPreFrameResult(vector<unordered_map<string,vector<pair<string, int>>>>& _preFrameResult,
                            vector<vector<pair<string, int>>>& result);
 
+	void solveAnnealing();
+
+	void _bandAllocate(const string& name);
+
+	void solveWeight();
 };
 

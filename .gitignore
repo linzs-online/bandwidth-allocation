@@ -4,3 +4,5 @@ output/
 bin/*
 *.zip
 src/cmake-build-debug
+src/cmake-build-debug/*
+.idea/
