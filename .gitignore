@@ -3,3 +3,4 @@ build/
 output/
 bin/*
 *.zip
+src/cmake-build-debug
