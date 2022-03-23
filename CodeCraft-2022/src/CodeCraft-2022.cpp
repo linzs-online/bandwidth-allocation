@@ -7,9 +7,11 @@ int main() {
     TicToc clockCaculate;
     //Base dataInit("/Users/dengyinglong/bandwidth-allocation/data/");
     Base dataInit("../../data/");
-	dataInit.solve();
-	dataInit.save("solution.txt");
+	dataInit.solveMaxFree();
+	//dataInit.save("/output/solution.txt");
+    dataInit.save("solution.txt");
     cout << dataInit.getScore(dataInit.result) << std::endl;
     cout << "所有程序运行时间: " << clockCaculate.toc()  << "ms" << std::endl;
 	return 0;
 }
+

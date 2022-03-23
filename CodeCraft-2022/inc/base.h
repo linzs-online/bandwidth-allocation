@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cstdio>
 #include <unordered_map>
+#include <map>
 #include <unordered_set>
 #include <vector>
 #include "paramter.h"
@@ -27,6 +28,12 @@ private:
     SiteLog::Ptr log;
 	vector<unordered_map<string, vector<int>>> _Weights;
     
+    unordered_map<string,vector<string>> siteConnetDemand;
+    multimap<uint64_t,string> siteConnetDemandSize;
+    unordered_map<string,int> siteUsedCnt;
+    multimap<size_t,size_t> frameDmandSumMap; //存储每帧的总需求量，之后把需求量大的优先使用那些可以连上多的客户的边缘节点来分发带宽
+    map<size_t,vector<vector<pair<string,int>>>> outputResult;
+
 
 public:
     vector<vector<pair<string, int>>> result;
@@ -38,6 +45,10 @@ public:
     Base(string&& _filePath);
     void solveMaxFree();
     void solveMaxAndWeight();
+    void maxDeal(int& demandNow,
+                vector<int>& siteNodeBand, 
+                const vector<int>& demandUsableSite, 
+                vector<pair<string, int>>& perResult);
     void solve();
     void save(string&& _fileName);
     ~Base() {};

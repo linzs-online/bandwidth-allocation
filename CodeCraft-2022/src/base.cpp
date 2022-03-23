@@ -1,6 +1,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <list>
 #include <math.h>
 #include <assert.h>
 #include "../inc/base.h"
@@ -17,10 +18,10 @@ Base::Base(string&& _filePath){
     siteNodeInit(_filePath + "site_bandwidth.csv");
     // 初始化demand（）
     demandNodeInit(_filePath + "demand.csv");
-    // 初始化QOS()
-    qosInit(_filePath + "qos.csv");
     // 初始化config（）
     qosConstraintInit(_filePath + "config.ini");
+    // 初始化QOS()
+    qosInit(_filePath + "qos.csv");
     log = std::make_shared<SiteLog>(siteNode, siteNodeBandwidth, demand.size());
 	// 找到满足qos的site
 	findUsableSite();
@@ -60,13 +61,20 @@ void Base::demandNodeInit(string&& _filePath){
     }
     vector<int> demandFrame;
     line.clear();
+    size_t frameID = 0;
     while(getline(demandfile,line)){
         istringstream sin(line);
-        getline(sin, temp, ',');
+        getline(sin, temp, ','); //吞掉前面的时间戳信息
+        size_t demandSum = 0;
         while(getline(sin, temp, ',')){
-            demandFrame.emplace_back(atoi(temp.c_str()));
+            size_t nodeDemand = atoi(temp.c_str());
+            demandSum += nodeDemand;
+            demandFrame.emplace_back(nodeDemand);
         }
         demand.emplace_back(demandFrame); //将所有时间序列的客户节点请求封装成vector
+        pair<size_t,size_t>  _temp(demandSum,frameID);
+        frameDmandSumMap.insert(_temp);
+        frameID++; //帧ID++，为下一帧处理准备
         demandFrame.clear();
     }
     //cout << "demandNode Inited " << demandNode.size() << endl;
@@ -99,6 +107,22 @@ void Base::qosInit(string&& _filePath){
         demand2site.insert(pre_demand2site);
         preDemand2site.clear();
     }
+    
+    for(auto& sName : siteNode){
+        vector<string> _temp; //用于存储当前边缘节点可以被请求的客户节点
+        for(auto index = 0; index < demandNode.size(); index++){
+            if(site2demand.at(sName)[index] < qos_constraint){
+                _temp.emplace_back(demandNode[index]);
+            }
+        }
+        if(_temp.empty()) continue;
+        int _size = _temp.size();
+        pair<size_t,string> _t(_size,sName);
+        pair<string,vector<string>> _T(sName,_temp);
+        siteConnetDemand.insert(_T);
+        siteConnetDemandSize.insert(_t);
+    }
+
     //cout << "preSite2demand Inited " << site2demand.at("A")[2] << endl;
 }
 
@@ -234,17 +258,222 @@ void Base::findUsableSite() {
 // 	int maxFree = floor(demand.size()*0.05)-1; //向下取整，相当于向上取整取前5%，可以免费使用的每个边缘节点的次数
 //     bool resOrNot = false;
 //     for(auto demandFrame : demand){
-//         vector<int> siteNodeBandwidthCopy(siteNodeBandwidth); //边缘节点带宽量的拷贝，每一轮拷贝一次
+//         vector<int> siteNodeBandwidthCopy = siteNodeBandwidth; //边缘节点带宽量的拷贝，每一轮拷贝一次
 //         unordered_set<int> usedSiteIndex; //用于记录当前帧被最大分配使用的边缘节点的序号
 //         for(size_t i = 0; i < demandFrame.size(); i++){
 //             vector<pair<string, int>> preFramePreDemandResult; // 用于存储每一帧中的每一客户节点流量请求分发的结果
 //             vector<int> demandUsableSiteIndex = usableSite.at(demandNode[i]); // 获取当前客户节点可用的边缘节点序号
-//             if(judgeRestFree(demandUsableSiteIndex, siteCnt, maxFree)) { // 只要还有可以最大分配的边缘节点，先最大分配
+//             if(judgeRestFree(demandUsableSiteIndex, siteCnt, maxFree)){ // 只要还有可以最大分配的边缘节点，先最大分配
 //                     _largestMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex,
 //                                 preFramePreDemandResult, siteCnt, maxFree, resOrNot, usedSiteIndex);
+//                 if(resOrNot){ // 有未被分配的带宽，该轮demand还需要平均分配
+//                     maxDeal(demandFrame[i], siteNodeBandwidthCopy,
+//                             demandUsableSiteIndex, preFramePreDemandResult);
+//                     resOrNot = false;
+//                 }
+//             }
+//             else{ //所有边缘节点免费使用次数白嫖完成，剩下的流量请求使用最大流分配的方式
+//                 maxDeal(demandFrame[i], siteNodeBandwidthCopy,
+//                         demandUsableSiteIndex, preFramePreDemandResult);
+//             }
+//             result.push_back(preFramePreDemandResult); //当前帧的当前客户节点流量请求分配方案存入结果
+//         }
+//         //一帧的所有客户节点的流量请求处理完成，对在最大分配方案中使用过的边缘节点记录一次
+//         for(auto& it : usedSiteIndex){
+//             siteCnt[it]++;
 //         }
 //     }
 // }
+
+// void Base::solveMaxFree(){
+//     //unordered_map<string,int> siteUsedCnt;
+//     //首先初始化每个边缘节点的使用次数,都是0
+//     for(auto& sName : siteNode){
+//         pair<string,int> _t(sName,0);
+//         siteUsedCnt.insert(_t);
+//     }
+//     list<string> siteSelectedList; //升序排列，最后一个元素中可以连上的客户最多
+//     for(auto it = siteConnetDemandSize.begin(); it != siteConnetDemandSize.end(); it++){
+//         siteSelectedList.push_back(it->second);
+//     }
+//     list<string> freeSite(siteSelectedList); //存储还有免费使用次数的列表
+//     //一帧一帧处理，这里用反向迭代器，先处理最大请求量大的帧
+//     for(auto idPtr = frameDmandSumMap.rbegin(); idPtr != frameDmandSumMap.rend(); idPtr++){
+//         list<string> siteListCopy(siteSelectedList); //可用的边缘节点初始化
+//         unordered_map<string,int> siteBandWithCopy(siteBandWith);  //每帧的边缘节点带宽初始化
+//         unordered_set<string> usedSiteName; //用于记录当前帧被最大分配使用的边缘节点的名字
+//         size_t frameID = idPtr->second; //当前要处理的帧ID号，用于最后存入结果
+//         // 客户 - 请求结果
+//         unordered_map<string,vector<pair<string,int>>> perFrameResult; //存储当前帧的带宽分发结果，用于最后存入结果
+//         unordered_map<string,size_t> frame; // 客户节点名字-它的请求流量
+//         for(auto i =0; i < demand[frameID].size(); i++){ //把一帧的各个客户请求取出来
+//             pair<string,size_t> _temp(demandNode[i], demand[frameID][i]);
+//             frame.insert(_temp); // 现在当前帧的流量请求以及以 客户名字-请求流量大小 的方式存储
+//             vector<pair<string,int>> perDresult;
+//             pair<string,vector<pair<string,int>>> Fresult(demandNode[i],perDresult);
+//             perFrameResult.insert(Fresult); //创建一个每帧结果存储器，等待结果按照客户名字索引放入
+//         }
+//         while(!freeSite.empty()){
+//             freeMode(frame, freeSite, siteBandWithCopy, perFrameResult, usedSiteName);
+//         }
+//         if(!frame.empty()){
+//             averMode(frame, siteListCopy, siteBandWithCopy, perFrameResult);
+//         }
+//         for(auto& name : usedSiteName){
+//             siteUsedCnt.at(name)++;
+//         }
+//     }
+// }
+
+void Base::solveMaxFree(){
+    //unordered_map<string,int> siteUsedCnt;
+    //首先初始化每个边缘节点的使用次数,都是0
+    for(auto& sName : siteNode){
+        pair<string,int> _t(sName,0);
+        siteUsedCnt.insert(_t);
+    }
+    list<string> siteSelectedList; //降序排列，最后一个元素中可以连上的客户最少
+    for(auto it = siteConnetDemandSize.rbegin(); it != siteConnetDemandSize.rend(); it++){
+        siteSelectedList.push_back(it->second);
+    }
+    list<string> freeSite(siteSelectedList); //存储还有免费使用次数的边缘节点的列表
+    //一帧一帧处理，这里用反向迭代器，先处理最大请求量大的帧
+    for(auto idPtr = frameDmandSumMap.rbegin(); idPtr != frameDmandSumMap.rend(); idPtr++){
+        size_t frameID = idPtr->second; //当前要处理的帧ID号，用于最后存入结果
+        unordered_map<string,vector<pair<string,int>>> perFrameResult; //存储当前帧的带宽分发结果，用于最后存入结果
+        unordered_map<string,int> siteBandWithCopy(siteBandWith);  //每帧的边缘节点带宽初始化
+        unordered_set<string> usedSiteName; //用于记录当前帧被使用的边缘节点的名字
+        unordered_map<string,uint64_t> frameDmandMap; // 客户节点名字-请求流量
+        vector<int> frameDemand(demand[frameID]);
+        for(auto i =0; i < demand[frameID].size(); i++){ //把一帧的各个客户请求取出来
+            pair<string,uint64_t> _temp(demandNode[i], demand[frameID][i]);
+            frameDmandMap.insert(_temp); // 现在当前帧的流量请求以及以 请求流量大小-客户名字 的方式存储
+            vector<pair<string,int>> perDresult;
+            pair<string,vector<pair<string,int>>> Fresult(demandNode[i],perDresult);
+            perFrameResult.insert(Fresult); //创建一个每帧结果存储器，等待结果按照客户名字索引放入
+        }
+        auto theMapSum = [&](unordered_map<string,uint64_t> demandMap)->uint64_t{
+            uint64_t sum = 0;
+            for(auto it = demandMap.begin(); it != demandMap.end(); it++){
+                sum += it->second;
+            }
+            return sum;
+        };
+
+        while (theMapSum(frameDmandMap) > 0)
+        {
+            for(auto site : siteSelectedList){
+                uint64_t demandSum = 0;
+                for(auto demand_it = siteConnetDemand.at(site).begin(); demand_it != siteConnetDemand.at(site).end(); demand_it++){
+                    demandSum += frameDmandMap.at(*demand_it);
+                }
+                if(demandSum >= siteBandWithCopy.at(site)){ //带宽跑满
+                    for(auto demand_it = siteConnetDemand.at(site).begin(); demand_it != siteConnetDemand.at(site).end(); demand_it++){
+                        if(frameDmandMap.at(*demand_it) > siteBandWithCopy.at(site)){
+                            frameDmandMap.at(*demand_it) -= siteBandWithCopy.at(site);
+                            pair<string,int> _temp(site, siteBandWithCopy.at(site));
+                            perFrameResult.at(*demand_it).emplace_back(_temp);
+                            siteBandWithCopy.at(site) = 0;
+                            usedSiteName.insert(site);
+                            break;
+                        }
+                        else{
+                            siteBandWithCopy.at(site) -= frameDmandMap.at(*demand_it);
+                            pair<string,int> _temp(site, frameDmandMap.at(*demand_it));
+                            perFrameResult.at(*demand_it).emplace_back(_temp);
+                            frameDmandMap.at(*demand_it) = 0;
+                        }
+                    }
+                }
+                else{ //均匀分配方式
+
+                }
+            }
+
+        }
+        // 每帧结束之前把在当前帧使用过的边缘节点的次数++
+        for(auto& name : usedSiteName){
+            siteUsedCnt.at(name)++;
+        }
+    }
+}
+
+
+// void Base::freeMode(unordered_map<string,size_t>& frame, 
+//                     list<string>& siteCanUse,
+//                     unordered_map<string,int>& siteBandWithCopy,
+//                     unordered_map<string,vector<pair<string,int>>>& perFrameResult,
+//                     unordered_set<string>& usedSiteName){
+//     //把边缘节点能连接上的客户节点的名字取出放到vector里面，先处理这部分节点
+//     vector<string> preDealDemandNode;
+//     preDealDemandNode = siteConnetDemand.at(siteCanUse.back());
+//     size_t demandSum = 0; //先算一下这些客户请求的总量
+//     for(auto& _name : preDealDemandNode){
+//         demandSum += frame[_name];
+//     }
+//     if(siteBandWithCopy.at(siteCanUse.back()) >= demandSum){
+//         //当这个边缘节点带宽总量比能连上的所有客户请求总量还大的时候，直接满足所有请求
+//         for(auto& _name : preDealDemandNode){
+//             pair<string,int> _temp(siteCanUse.back(), frame.at(_name));
+//             perFrameResult.at(_name).emplace_back(_temp);//存入已经被满足的客户请求结果
+//             frame.erase(_name);  //被满足的节点全部擦除
+//         }
+//         siteBandWithCopy.at(siteCanUse.back()) -= demandSum; //返回边缘节点的余量
+//     }
+//     else{
+//         //当这个边缘节点带宽总量比能连上的所有客户请求总量小的时候，优先满足请求最大的那个,直到分配完这个边缘节点的带宽
+//         map<size_t,string> demandNow;
+//         for(auto it = frame.begin(); it != frame.end(); it++){
+//             pair<size_t,string> _temp(it->second,it->first);
+//             demandNow.insert(_temp); // （升序排列）存储形式：需求量 - 客户节点名字 
+//         }
+//         while(siteBandWithCopy.at(siteCanUse.back()) > 0){
+//             if(siteBandWithCopy.at(siteCanUse.back()) < demandNow.rbegin()->first){
+//                 //最大那个请求就可以把这个边缘节点的带宽消耗完毕
+//                 frame.at(demandNow.rbegin()->second) -= siteBandWithCopy.at(siteCanUse.back());
+//                 siteBandWithCopy.at(siteCanUse.back()) = 0;
+//                 pair<string,int> _temp(siteCanUse.back(),siteBandWithCopy.at(siteCanUse.back()));
+//                 perFrameResult.at(demandNow.rbegin()->second).emplace_back(_temp);
+//                 usedSiteName.insert(siteCanUse.back());
+//                 siteCanUse.pop_back(); //在可用列表中删除它
+//             }
+//             else{ //这个边缘节点在满足最大的客户请求之后还能继续分配
+//                 siteBandWithCopy.at(siteCanUse.back()) -= frame.at(demandNow.rbegin()->second);
+//                 pair<string,int> _temp(siteCanUse.back(),frame.at(demandNow.rbegin()->second));
+//                 perFrameResult.at(demandNow.rbegin()->second).emplace_back(_temp);
+//                 //满足了请求之后在请求表中删除这个客户请求
+//                 frame.erase(demandNow.rbegin()->second);
+//                 auto it = demandNow.end();
+//                 demandNow.erase(--it);
+//             }
+//         }
+//     }
+// }
+
+
+void Base::maxDeal(int& demandNow,
+            vector<int>& siteNodeBand, 
+            const vector<int>& demandUsableSite, 
+            vector<pair<string, int>>& perResult){
+    for(auto j = 0; j < demandUsableSite.size(); j++){
+        //如果当前边缘节点带宽小于流量请求,那就把这个边缘节点全部分配给这个请求
+        if(demandNow >= siteNodeBand[demandUsableSite[j]]){
+            if(siteNodeBand[demandUsableSite[j]] == 0) continue;
+            demandNow -= siteNodeBand[demandUsableSite[j]];
+            pair<string,int> _temp(siteNode[demandUsableSite[j]],siteNodeBand[demandUsableSite[j]]);
+            perResult.emplace_back(_temp);
+            siteNodeBand[demandUsableSite[j]] = 0;
+        }
+        else if(demandNow < siteNodeBand[demandUsableSite[j]])
+        { //当前请求小于边缘节点带宽，把边缘节点的部分带宽切给请求
+            siteNodeBand[demandUsableSite[j]] -= demandNow;
+            pair<string,int> _temp(siteNode[demandUsableSite[j]],demandNow);
+            perResult.emplace_back(_temp);
+            demandNow = 0;
+            break;
+        }
+    }
+}
 
 
 void Base::solveMaxAndWeight() {
@@ -264,9 +493,9 @@ void Base::solveMaxAndWeight() {
                 if(judgeRestFree(demandUsableSiteIndex, siteCnt, maxFree)) { // 只要还有可以最大分配的边缘节点，先最大分配
                     _largestMethod(demandFrame[i], siteNodeBandwidthCopy, demandUsableSiteIndex,
                                 preFramePreDemandResult, siteCnt, maxFree, flag, usedSiteIndex);
-                if(flag) { // 有未被分配的带宽，该轮demand还需要平均分配
+                    if(flag) { // 有未被分配的带宽，该轮demand还需要平均分配
                         _weightMethod(demandFrame[i], siteNodeBandwidthCopy,
-                                demandUsableSiteIndex, preFramePreDemandResult, *curLayer);
+                                    demandUsableSiteIndex, preFramePreDemandResult, *curLayer);
                         flag = false;
                     }
                 }
@@ -353,7 +582,7 @@ void Base::_largestMethod(int &demandNow,
             siteNodeBand[_demandUsableSiteIndex[j]] = 0; //分配完之后该边缘节点的剩余带宽已经为0
             _preFramePreDemandResult.push_back(x); //把当前边缘节点的全部带宽分配到该请求作为结果存入
 			usedSiteIndex.insert(_demandUsableSiteIndex[j]); //存入使用过的边缘节点的序号
-            if(j == _demandUsableSiteIndex.size() - 1) {
+            if(j == _demandUsableSiteIndex.size() - 1){
                 flag = true;
             }
         }
