@@ -7,3 +7,4 @@ src/cmake-build-debug
 src/cmake-build-debug/*
 cmake-build-debug/*
 .idea/
+/CodeCraft-2022/src/cmake-build-debug/
