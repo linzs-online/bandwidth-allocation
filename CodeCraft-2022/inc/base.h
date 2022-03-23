@@ -76,5 +76,10 @@ private:
                            vector<vector<pair<string, int>>>& result);
     void _updateAllWeight();
 
+	void solveWeight();
+
+	void _bandAllocate(const string &name);
+
+	void solveAnne();
 };
 

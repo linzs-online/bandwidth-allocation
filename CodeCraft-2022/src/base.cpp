@@ -289,7 +289,7 @@ void Base::solveMaxAndWeight() {
 /**
  * @brief 模拟退火版solve
  */
-void Base::solve() {
+void Base::solveAnne() {
 	TicToc tictoc;
 
 	int L = 20000; // 最大迭代次数
