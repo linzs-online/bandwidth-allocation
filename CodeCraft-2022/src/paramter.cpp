@@ -13,6 +13,10 @@
  */
 void Paramerter::softmax(size_t start, float offValue) {
         float sum = std::accumulate(value.begin() + start, value.end(), 0.0f);
+        if(sum == 0) {
+            init(value.size());
+            return;
+        }
         for (size_t i = start; i < value.size(); i++) {
             if (offValue != 0.0f) {
                 float tmp = value[i] + (value[i] / sum) * offValue;
@@ -31,21 +35,12 @@ void Paramerter::softmax(size_t start, float offValue) {
 
 
 void Paramerter::normal(double mean, double stddev) {
-<<<<<<< Updated upstream
-    std::random_device rd{};
-    std::mt19937 gen{rd()};
-=======
-//     std::random_device rd{};
-    uint64_t time = std::chrono::system_clock::now().time_since_epoch().count();
-    std::mt19937 gen(time);
->>>>>>> Stashed changes
+	auto time = std::chrono::system_clock::now().time_since_epoch().count();
+	std::mt19937 gen(time);
     std::normal_distribution<> rng{mean, stddev};
     for (size_t i = 0; i < value.size(); i++) {
         value[i] = std::abs(rng(gen));
     }
-<<<<<<< Updated upstream
-}
-=======
 }
 
 void Paramerter::init(size_t threshold) {
@@ -106,7 +101,7 @@ void SiteLog::write2Log(vector<pair<string, int>> _Result, size_t frameID){
 
 void SiteLog::logClear(){
     for(auto siteName : siteNodeName){
-        siteLogMap.at(siteName).first = 0; 
+        siteLogMap.at(siteName).first = 0;
         fill(siteLogMap.at(siteName).second.begin(),siteLogMap.at(siteName).second.end(),0);
     }
 }
@@ -124,7 +119,7 @@ int Optim::mean() {
 uint32_t Optim::mid() {
     size_t n = value.size();
     auto mid = value.begin() + n / 2;
-    std::nth_element(value.begin(), mid, value.end(), 
+    std::nth_element(value.begin(), mid, value.end(),
             [](Optim::DataType a, Optim::DataType b) { return a.first < b.first;});
     return mid->first;
 }
@@ -138,4 +133,3 @@ void Optim::step(int _mean) {
         }
     }
 }
->>>>>>> Stashed changes

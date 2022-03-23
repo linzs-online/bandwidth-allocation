@@ -6,7 +6,7 @@ int main() {
     using std::endl;
     TicToc clockCaculate;
     //Base dataInit("/Users/dengyinglong/bandwidth-allocation/data/");
-    Base dataInit("../data/");
+    Base dataInit("../../data/");
 	dataInit.solve();
 	dataInit.save("solution.txt");
     cout << dataInit.getScore(dataInit.result) << std::endl;
