@@ -16,10 +16,13 @@ class Paramerter {
 public:
     using Ptr = std::shared_ptr<Paramerter>;
     std::vector<float> value;
+    std::vector<float> oldValue;
 
     Paramerter() {};
     void softmax(size_t start = 0, float offValue = 0);
     void normal(double mean = 0, double stddev = 1);
+    void drop();
+    void stash();
     void init(size_t threshold);
 };
 
@@ -45,10 +48,10 @@ public:
 class Optim {
 public:
     using Ptr = std::shared_ptr<Optim>;
-    using DataType = pair<uint32_t, float&>;
+    using DataType = vector<int*>;
     vector<DataType> value;
     Optim() {};
-    int mean();
-    uint32_t mid();
+   // int mean();
+   // int32_t mid();
     void step(int _mean);
 };

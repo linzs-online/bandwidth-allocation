@@ -8,8 +8,7 @@
 #include <vector>
 #include "paramter.h"
 
-
-using std;
+using namespace std;
 using std::vector;
 using std::string;
 using std::unordered_map;
@@ -32,9 +31,10 @@ private:
     multimap<uint64_t,string> siteConnetDemandSize;
     unordered_map<string,int> siteUsedCnt;
     multimap<size_t,size_t> frameDmandSumMap; //存储每帧的总需求量，之后把需求量大的优先使用那些可以连上多的客户的边缘节点来分发带宽
-    map<size_t,vector<vector<pair<string,int>>>> outputResult;
+    map<uint32_t,vector<vector<pair<string,int>>>> outputResult;
 
     unordered_map<string, Optim> _optimMap;
+    unordered_map<string, vector<uint32_t>> fixedTime;
 
 public:
     vector<vector<pair<string, int>>> result;
@@ -71,10 +71,19 @@ public:
                         vector<int>& siteNodeBand,
                         const vector<int>& demandUsableSite,
                         vector<pair<string, int>>& result,
-                        Paramerter::Ptr weight);
+                        Paramerter::Ptr weight,
+                        unordered_map<string, Optim::DataType>& siteFrameLog);
+    void _weightMethod(int demandNow,
+                    unordered_map<std::string, int>& siteBandWithCopy,
+                    const vector<int>& demandUsableSite,
+                    vector<pair<string, int>>& result,
+                    Paramerter::Ptr weight);
     unsigned int getScore(vector<vector<pair<string, int>>>& result);
     void updateWeight(Paramerter::Ptr weight, vector<int> demandUsableSiteIndex, size_t frameId);
 	void simulatedAnnealing(bool &flag, float &T);
+    void averageMode(pair<string, uint64_t> demand, 
+                        vector<pair<string, uint64_t>> siteBWCopy,
+                        vector<pair<string,uint64_t>> result);
 
 private:
     void _weightDistribution(int demandNow,
@@ -87,6 +96,6 @@ private:
     void getPreFrameResult(vector<unordered_map<string,vector<pair<string, int>>>>& _preFrameResult,
                            vector<vector<pair<string, int>>>& result);
     void _updateAllWeight();
-
+    void _frameSiteOptim(unordered_map<string, Optim::DataType>& siteFrameLog);
 };
 
