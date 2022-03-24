@@ -5,3 +5,7 @@ bin/*
 *.zip
 /CodeCraft-2022/src/cmake-build-debug/
 CodeCraft-2022/src/solution.txt
+data/config.ini
+data/demand.csv
+data/qos.csv
+data/site_bandwidth.csv
