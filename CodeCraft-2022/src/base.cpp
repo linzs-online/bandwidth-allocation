@@ -29,7 +29,7 @@ Base::Base(string&& _filePath){
     // 参数初始化
     paramInit();
 
-    maxFree = floor(demand.size() * 0.05) - 1;
+    maxFree = floor(demand.size() * 0.05);
 }
 
 void Base::siteNodeInit(string&& _filePath){
@@ -420,15 +420,15 @@ void Base::solveMaxFree(){
                     vector<int> canUseSite = usableSite.at(dmandMap.first);
                     Paramerter::Ptr w = std::make_shared<Paramerter>();
                     vector<pair<string, int>> resResult;
-                    w->value.assign(canUseSite.size(), 0);
-                    for (int i = 0; i < canUseSite.size() / 4; ++i) {
-                        w->init(canUseSite.size());
-                    }
+                    w->value.assign(canUseSite.size(), 1);
+                    // for (int i = 0; i < int(canUseSite.size() / 1.5); ++i) {
+                    //     w->init(canUseSite.size());
+                    // }
                     w->softmax();
                     _weightMethod(dmandMap.second, siteBandWithCopy, canUseSite, resResult, w);
                     frameDmandMap.at(dmandMap.first) = 0;
                     for(auto& _r : resResult){
-                        perFrameResult.at(dmandMap.first).at(_r.first).second = _r.second;
+                        perFrameResult.at(dmandMap.first).at(_r.first).second += _r.second;
                     }
                 }
             }
@@ -726,11 +726,15 @@ void Base::_weightMethod(int demandNow,
     }
     _weightDistribution(demandNow, demandNow, siteNodeBand,
                 demandUsableSite, record, weight);
+    int total = 0;
     for (size_t i = 0; i < demandUsableSite.size(); ++i) {
         int site = demandUsableSite[i];
         int band = _totalBand(siteNode[site], record);
         pair<string, int> tmp(siteNode[site], band);
         result.emplace_back(std::move(tmp));
+    }
+    for (size_t i = 0; i < siteNode.size(); ++i) {
+        siteBandWithCopy[siteNode[i]] = siteNodeBand[i];
     }
 }
 
@@ -1107,6 +1111,14 @@ int Base::computeSiteSumTime(const string& siteName, int FrameID) {
 
 void Base::updateBandwidth(int L) {
 	int maxL = 2000; // 最大迭代次数
+    for (auto& o: _optimMap) {
+        for (auto&s: o.second.value) {
+            for (auto& a: s) {
+                int x = *a;
+                assert(x >= 0);
+            }
+        }
+    }
 //	double alpha = exp(1 - L / (L + 1 - maxL)); // 随迭代次数下降的系数
 	double alpha = randomNumDouble(1e-16, 2.0);
 	for (auto it = siteConnetDemandSize.rbegin(); it != siteConnetDemandSize.rend(); ++it) { // 遍历边缘节点，siteConnetDemandSize按照从小到大排序，后面的是连接客户节点多的边缘节点
@@ -1134,6 +1146,14 @@ void Base::updateBandwidth(int L) {
 			siteSumTimeMap.insert(timeSum);
 		}
 		int thisSiteAvr = floor(siteSum / cnt);
+        for (auto& o: _optimMap) {
+            for (auto&s: o.second.value) {
+                for (auto& a: s) {
+                    int x = *a;
+                    assert(x >= 0);
+                }
+            }
+        }
 
 		// 对边缘节点某些时刻的带宽量进行修改，只对随机选择到的时刻且不是固定时刻进行修改。修改应该是固定时刻，固定客户节点的进行修改，才能保证客户节点的需求量不变
 		auto modifiedTimeSet = genRandomTimeSet(0, optim.size() - 1, optim.size() * 0.3);
@@ -1227,11 +1247,19 @@ void Base::updateBandwidth(int L) {
 								cout << "5" << endl;
 							}
 						} else { // 该边缘节点该时刻该客户节点的带宽量比val小，则原边缘节点加上没减掉的量
+                            assert(*_optimMap.at(siteNode[siteID]).value[i][thisDemandID] >= 0);
+                            int z =  *_optimMap.at(siteNode[siteID]).value[i][thisDemandID];
+                            int y = (siteNodeBandwidth[siteID] - computeSiteSumTime(thisSiteName, i));
+                            if (y < 0) {
+                                cout << "de";
+                            }
 //							perSiteModifyVal -= (siteNodeBandwidth[siteID] - _optimMap.at(siteNode[siteID]).value[i][thisDemandID].first);
 							int modifyResVal = perSiteModifyVal - (siteNodeBandwidth[siteID] - computeSiteSumTime(thisSiteName, i));
 							// 该边缘节点该时刻该客户节点加上能加的量
 							*_optimMap.at(siteNode[siteID]).value[i][thisDemandID] += (siteNodeBandwidth[siteID] -
 									computeSiteSumTime(thisSiteName, i));
+                            int x =  *_optimMap.at(siteNode[siteID]).value[i][thisDemandID];
+                            assert(*_optimMap.at(siteNode[siteID]).value[i][thisDemandID] >= 0);
 							if(*_optimMap.at(siteNode[siteID]).value[i][thisDemandID] < 0) {
 								cout << "6" << endl;
 							}
@@ -1289,8 +1317,8 @@ void Base::solve() {
 	// 不断维护95%的带宽
 	int L = 2000;
 	while(L--) {
-		updateBandwidth(L);
-		if(tictoc.toc() > 10000) break;
+	 	updateBandwidth(L);
+		if(tictoc.toc() > 250000) break;
 	}
 }
 
