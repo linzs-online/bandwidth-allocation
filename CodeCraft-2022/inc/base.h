@@ -27,8 +27,8 @@ private:
     SiteLog::Ptr log;
 	vector<unordered_map<string, vector<int>>> _Weights;
     
-    unordered_map<string,vector<string>> siteConnetDemand;
-    multimap<uint64_t,string> siteConnetDemandSize;
+    unordered_map<string,vector<string>> siteConnetDemand; // 边缘节点连接的客户节点
+    multimap<uint64_t,string> siteConnetDemandSize; // 边缘节点连接了多少客户节点，上小下大
     unordered_map<string,int> siteUsedCnt;
     multimap<size_t,size_t> frameDmandSumMap; //存储每帧的总需求量，之后把需求量大的优先使用那些可以连上多的客户的边缘节点来分发带宽
     map<uint32_t,vector<vector<pair<string,int>>>> outputResult;
@@ -81,7 +81,11 @@ public:
     unsigned int getScore(vector<vector<pair<string, int>>>& result);
     void updateWeight(Paramerter::Ptr weight, vector<int> demandUsableSiteIndex, size_t frameId);
 	void simulatedAnnealing(bool &flag, float &T);
-    void averageMode(pair<string, uint64_t> demand, 
+	void updateBandwidth(int L);
+	void modifySiteBandwidth(int modifiedSiteID, int perSiteModifyVal, bool flag);
+	vector<int> findUsableSiteIndex(vector<int> modifiedSite, const vector<int>& demandConnectSite, uint64_t FrameID, int selfID);
+	int computeSiteSumTime(const string &siteName, int FrameID);
+    void averageMode(pair<string, uint64_t> demand,
                         vector<pair<string, uint64_t>> siteBWCopy,
                         vector<pair<string,uint64_t>> result);
 

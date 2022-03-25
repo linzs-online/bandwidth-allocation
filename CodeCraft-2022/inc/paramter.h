@@ -48,8 +48,8 @@ public:
 class Optim {
 public:
     using Ptr = std::shared_ptr<Optim>;
-    using DataType = vector<int*>;
-    vector<DataType> value;
+    using DataType = vector<int*>; // 内层客户节点
+    vector<DataType> value; // 外层时刻
     Optim() {};
    // int mean();
    // int32_t mid();

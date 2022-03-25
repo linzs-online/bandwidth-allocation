@@ -37,7 +37,7 @@ void Paramerter::softmax(size_t start, float offValue) {
 void Paramerter::normal(double mean, double stddev) {
     // std::random_device rd{};
     uint64_t time = std::chrono::system_clock::now().time_since_epoch().count();
-    std::mt19937 gen{time};
+    std::mt19937 gen(time);
     std::normal_distribution<> rng{mean, stddev};
     for (size_t i = 0; i < value.size(); i++) {
         value[i] = std::abs(rng(gen));
@@ -46,7 +46,7 @@ void Paramerter::normal(double mean, double stddev) {
 
 void Paramerter::init(size_t threshold) {
     uint64_t time = std::chrono::system_clock::now().time_since_epoch().count();
-    std::mt19937 gen{time};
+    std::mt19937 gen(time);
     size_t id = gen() % threshold;
     value[id] = 1;
 }
