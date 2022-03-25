@@ -412,7 +412,11 @@ void Base::solveMaxFree(){
                     vector<int> canUseSite = usableSite.at(dmandMap.first);
                     Paramerter::Ptr w = std::make_shared<Paramerter>();
                     vector<pair<string, int>> resResult;
-                    w->value.assign(canUseSite.size(), 1.0f / canUseSite.size());
+                    w->value.assign(canUseSite.size(), 0);
+                    for (int i = 0; i < canUseSite.size() / 4; ++i) {
+                        w->init(canUseSite.size());
+                    }
+                    w->softmax();
                     _weightMethod(dmandMap.second, siteBandWithCopy, canUseSite, resResult, w);
                     frameDmandMap.at(dmandMap.first) = 0;
                     for(auto& _r : resResult){
@@ -710,9 +714,11 @@ void Base::_weightMethod(int demandNow,
     }
     _weightDistribution(demandNow, demandNow, siteNodeBand,
                 demandUsableSite, record, weight);
-    for (auto& r: record) {
-        pair<string, int> tmp(r.first, r.second);
-        result.emplace_back(move(tmp));
+    for (size_t i = 0; i < demandUsableSite.size(); ++i) {
+        int site = demandUsableSite[i];
+        int band = _totalBand(siteNode[site], record);
+        pair<string, int> tmp(siteNode[site], band);
+        result.emplace_back(std::move(tmp));
     }
 }
 
@@ -735,7 +741,7 @@ static inline bool _updateRecord(
     if (reactValue < planValue) {
         weight->value[id] = float(reactValue) / totalDemand;
         if (weight->value[id] - oldWeight != 0.0f) {
-            weight->softmax(id + 1, float(planValue - reactValue) / totalDemand);
+            weight->softmax(id + 1, oldWeight - weight->value[id]);
         }
         return true;
     }
@@ -755,6 +761,38 @@ static inline uint32_t _getRes(
     return totalDemand - sum;
 }
 
+
+/**
+ * @brief 余数分配
+*/
+static inline void allcoRes(int& demandNow, int res,
+            vector<int>& siteNodeBand, 
+            const vector<int>& demandUsableSite,
+            const vector<string>& siteNode,
+            unordered_map<string, int>& record) {
+    int resInital = res;
+    for (size_t i = 0; i < demandUsableSite.size(); ++i) {
+        int site = demandUsableSite[i];
+        if (siteNodeBand[site] == 0) {
+            continue;
+        }
+        if (siteNodeBand[site] >= res) {
+            siteNodeBand[site] -= res;
+            record[siteNode[site]] = _totalBand(siteNode[site], record) + res;
+            res = 0;
+        } else {
+            res -= siteNodeBand[site];
+            record[siteNode[site]] = _totalBand(siteNode[site], record) + siteNodeBand[site];
+            siteNodeBand[site] = 0;
+        }
+        if (res == 0) {
+            break;
+        }
+    }
+    demandNow -= resInital;
+}
+
+
 void Base::_weightDistribution(int demandNow,
                 const int totalDemand,
                 vector<int>& siteNodeBand, 
@@ -763,7 +801,6 @@ void Base::_weightDistribution(int demandNow,
                 Paramerter::Ptr weight) const {
     // 权重策略
     const int demandInitial = demandNow;
-    int totalRes = 0;
     int res = _getRes(weight, demandInitial);
     for (size_t i = 0; i < demandUsableSite.size(); ++i) {
         
@@ -773,12 +810,12 @@ void Base::_weightDistribution(int demandNow,
         int site = demandUsableSite[i];
         assert(!isnan(weight->value[i]));
         int allocDemand = demandInitial * weight->value[i];
-        // if (siteNodeBand[site] == 0) {
-        //     continue;
-        // }
+        if (weight->value[i] == 0 || allocDemand == 0) {
+            continue;
+        }
         // 获得边缘节点分配量
         int band = 0;
-        auto getBand = [&](int* demand, bool is_res) {
+        auto getBand = [&](int* demand) {
             int tmp = band;
             if (*demand == 0) {
                 return;
@@ -790,17 +827,8 @@ void Base::_weightDistribution(int demandNow,
                 band += siteNodeBand[site];
                 siteNodeBand[site] = 0;
             }
-            if (is_res) {
-                *demand -= (band - tmp);
-                totalRes = (band - tmp);
-            }
-
         };
-        getBand(&allocDemand, false);
-        getBand(&res, true);
-        if (band == 0) {
-            continue; // 权重过小导致无分配
-        }
+        getBand(&allocDemand);
         // 更新
         demandNow -= band;
         bool update = _updateRecord(weight, i, record, siteNode[site], 
@@ -810,6 +838,8 @@ void Base::_weightDistribution(int demandNow,
             res = _getRes(weight, demandInitial);
         }
     }
+    // 余数分配
+    allcoRes(demandNow, res, siteNodeBand, demandUsableSite, siteNode, record);
     // 递归分配余量
     _weightDistribution(demandNow, totalDemand,siteNodeBand,
             demandUsableSite, record, weight);
@@ -1062,7 +1092,7 @@ int Base::computeSiteSumTime(const string& siteName, int FrameID) {
 
 void Base::updateBandwidth(int L) {
 	int maxL = 2000; // 最大迭代次数
-	double alpha = exp(1 - L / (L + 1 - maxL)); // 随迭代次数下降的系数
+	double alpha = exp(1 - L / (L + 1 - maxL + 1e-2)); // 随迭代次数下降的系数
 	for (auto it = siteConnetDemandSize.rbegin(); it != siteConnetDemandSize.rend(); ++it) { // 遍历边缘节点，siteConnetDemandSize按照从小到大排序，后面的是连接客户节点多的边缘节点
 		vector<int> modifiedSite; // 记录修改过的边缘节点的序号
 		string siteName = it->second;

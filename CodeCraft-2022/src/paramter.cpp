@@ -13,20 +13,15 @@
  */
 void Paramerter::softmax(size_t start, float offValue) {
         float sum = std::accumulate(value.begin() + start, value.end(), 0.0f);
-        if(sum == 0) {
-            init(value.size());
-            return;
-        }
         for (size_t i = start; i < value.size(); i++) {
-            if (offValue != 0.0f) {
-                float tmp = value[i] + (value[i] / sum) * offValue;
-                if (tmp < 0) {
-                    offValue += tmp;
-                    value[i] = 0.0f;
-
+            if (offValue != 0) {
+                float tmp = 0;
+                if (sum != 0) {
+                    tmp = value[i] + (value[i] / sum) * offValue;
                 } else {
-                    value[i] = tmp;
+                    tmp = (1.0f / (value.size() - start)) * offValue;
                 }
+                value[i] = tmp;
             } else {
                 value[i] = value[i] / sum;
             }
