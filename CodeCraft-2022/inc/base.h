@@ -30,11 +30,14 @@ private:
     unordered_map<string,vector<string>> siteConnetDemand; // 边缘节点连接的客户节点
     multimap<uint64_t,string> siteConnetDemandSize; // 边缘节点连接了多少客户节点，上小下大
     unordered_map<string,int> siteUsedCnt;
-    multimap<size_t,size_t> frameDmandSumMap; //存储每帧的总需求量，之后把需求量大的优先使用那些可以连上多的客户的边缘节点来分发带宽
-    map<uint32_t,vector<vector<pair<string,int>>>> outputResult;
+ 
 
     unordered_map<string, Optim> _optimMap;
     unordered_map<string, vector<uint32_t>> fixedTime;
+    unordered_map<uint32_t, unordered_map<string, uint64_t>> frameMap;
+    unordered_map<uint32_t, unordered_map<string,int>> sitePerFrameBW;
+    unordered_map<string, multimap<uint64_t, uint32_t>> sortMap; 
+    
 
 public:
     vector<vector<pair<string, int>>> result;
@@ -42,9 +45,11 @@ public:
     vector<string> siteNode;
     vector<int> siteNodeBandwidth;
     vector<vector<int>> demand;  //时间序列下的客户节点请求
+    unordered_map<uint32_t,unordered_map<string,unordered_map<string, pair<string,int>>>> bestResult;
 
     Base(string&& _filePath);
     void solveMaxFree();
+    void solveFree();
     void solveMaxAndWeight();
     void maxDeal(int& demandNow,
                 vector<int>& siteNodeBand, 
@@ -52,6 +57,7 @@ public:
                 vector<pair<string, int>>& perResult);
     void solve();
     void save(string&& _fileName);
+    void save2(string&& _fileName);
     ~Base() {};
     void siteNodeInit(string&& _filePath);
     void demandNodeInit(string&& _filePath);
@@ -85,9 +91,6 @@ public:
 	void modifySiteBandwidth(int modifiedSiteID, int perSiteModifyVal, bool flag);
 	vector<int> findUsableSiteIndex(vector<int> modifiedSite, const vector<int>& demandConnectSite, uint64_t FrameID, int selfID);
 	int computeSiteSumTime(const string &siteName, int FrameID);
-    void averageMode(pair<string, uint64_t> demand,
-                        vector<pair<string, uint64_t>> siteBWCopy,
-                        vector<pair<string,uint64_t>> result);
 
 private:
     void _weightDistribution(int demandNow,

@@ -6,7 +6,4 @@ bin/*
 /CodeCraft-2022/src/cmake-build-debug/
 CodeCraft-2022/src/solution.txt
 /CodeCraft-2022/build
-data/config.ini
-data/demand.csv
-data/qos.csv
-data/site_bandwidth.csv
+data/
