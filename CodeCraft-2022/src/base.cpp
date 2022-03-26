@@ -408,7 +408,7 @@ void Base::solveMaxFree(){
                         }
                     }
                     float rate = float(totalComsume) / totalDemand;
-                    if(rate > 0.8 || (float(totalComsume) / siteBandWith.at(site)) > 0.9){
+                    if(rate > 0.8 || (float(totalComsume) / siteBandWith.at(site)) > 0.5){
                         usedSiteName.insert(site);
                         fixedTime.at(site).push_back(frameID);
                     }
@@ -1108,19 +1108,38 @@ int Base::computeSiteSumTime(const string& siteName, int FrameID) {
 	return sum;
 }
 
+/**
+ * @brief 挑选与平均值偏差最大的时刻
+ * @param timeSumMap 边缘节点不同时刻的带宽量
+ * @param avr
+ * @param num
+ * @return
+ */
+vector<int> findModifyTime(unordered_map<uint64_t , int> timeSumMap, int avr, int num) {
+	multimap<int, uint64_t, greater<int>> biasMap;
+	vector<int> biasID;
+	for(auto timeSum : timeSumMap) {
+		uint64_t time = timeSum.first;
+		int sum = timeSum.second;
+		int bias = abs(sum - avr);
+		pair<int, uint64_t> timeBias(bias, time);
+		biasMap.insert(timeBias);
+	}
+//	sort(biasMap.begin(), biasMap.end(), [] (pair<uint64_t, int> a, pair<uint64_t, int> b) {return a.second > b.second;});
+	auto it = biasMap.begin();
+	for (int i = 0; i < num; ++i) {
+		biasID.emplace_back(it->second);
+		++it;
+	}
+
+	return biasID;
+}
+
 
 void Base::updateBandwidth(int L) {
 	int maxL = 2000; // 最大迭代次数
-    for (auto& o: _optimMap) {
-        for (auto&s: o.second.value) {
-            for (auto& a: s) {
-                int x = *a;
-                assert(x >= 0);
-            }
-        }
-    }
-//	double alpha = exp(1 - L / (L + 1 - maxL)); // 随迭代次数下降的系数
-	double alpha = randomNumDouble(1e-16, 2.0);
+//	double alpha = exp(L / maxL); // 随迭代次数下降的系数
+	double alpha = randomNumDouble(1e-16, 1.0);
 	for (auto it = siteConnetDemandSize.rbegin(); it != siteConnetDemandSize.rend(); ++it) { // 遍历边缘节点，siteConnetDemandSize按照从小到大排序，后面的是连接客户节点多的边缘节点
 		vector<int> modifiedSite; // 记录修改过的边缘节点的序号
 		string siteName = it->second;
@@ -1146,24 +1165,19 @@ void Base::updateBandwidth(int L) {
 			siteSumTimeMap.insert(timeSum);
 		}
 		int thisSiteAvr = floor(siteSum / cnt);
-        for (auto& o: _optimMap) {
-            for (auto&s: o.second.value) {
-                for (auto& a: s) {
-                    int x = *a;
-                    assert(x >= 0);
-                }
-            }
-        }
 
 		// 对边缘节点某些时刻的带宽量进行修改，只对随机选择到的时刻且不是固定时刻进行修改。修改应该是固定时刻，固定客户节点的进行修改，才能保证客户节点的需求量不变
-		auto modifiedTimeSet = genRandomTimeSet(0, optim.size() - 1, optim.size() * 0.3);
-		for (uint64_t i = 0; i < optim.size(); ++i) {
+//		auto modifiedTimeSet = genRandomTimeSet(0, optim.size() - 1, optim.size() * 0.6);
+		auto modifyTimeVec = findModifyTime(siteSumTimeMap, thisSiteAvr, floor(optim.size() * 0.5));
+//		for (uint64_t i = 0; i < optim.size(); ++i) {
+		for(auto i : modifyTimeVec){
+			// 最大分配和没随机到的时刻都跳过
 			if(std::find(siteFixedTime.begin(), siteFixedTime.end(), i) != siteFixedTime.end()) {
 				continue;
 			}
-			if(!modifiedTimeSet.count(i)) {
-				continue;
-			}
+//			if(std::find(modifyTimeVec.begin(), modifyTimeVec.end(), i) == modifyTimeVec.end()) {
+//				continue;
+//			}
 			uint64_t modifyDemand = randomNumInt(0, siteConnectSize - 1); // 在该时刻里随机一个要修改的客户节点的带宽量
 			string thisDemandName = siteConnetDemand.at(siteName)[modifyDemand];
 			vector<int> thisDemandConnectSite = usableSite.at(thisDemandName);
@@ -1171,7 +1185,7 @@ void Base::updateBandwidth(int L) {
 			if(thisDemandUsableSiteVec.empty()) { // 这个客户节点没有能用的边缘节点了，放过他吧
 				continue;
 			}
-			int val = abs(siteSumTimeMap.at(i) - thisSiteAvr) * alpha * randomNumDouble(1e-10, 0.35);
+			int val = abs(siteSumTimeMap.at(i) - thisSiteAvr) * alpha;
 			int perSiteModifyVal = floor(val / thisDemandUsableSiteVec.size());
 			if(perSiteModifyVal < 1) { // 每个边缘节点要修改的连1都不到，算了
 				continue;
@@ -1318,7 +1332,8 @@ void Base::solve() {
 	int L = 2000;
 	while(L--) {
 	 	updateBandwidth(L);
-		if(tictoc.toc() > 250000) break;
+		cout << getScore(result) << std::endl;
+		if(tictoc.toc() > 200000) break;
 	}
 }
 

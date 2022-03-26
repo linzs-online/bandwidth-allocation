@@ -5,8 +5,8 @@ int main() {
     using std::cout;
     using std::endl;
     TicToc clockCaculate;
-//    Base dataInit("/Users/dengyinglong/bandwidth-allocation/data/");
-    Base dataInit("../../data/");
+    Base dataInit("/Users/dengyinglong/bandwidth-allocation/data/");
+//    Base dataInit("../../data/");
 //	dataInit.solveMaxFree();
 	dataInit.solve();
 	//dataInit.save("/output/solution.txt");
