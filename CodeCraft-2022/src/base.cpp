@@ -1135,6 +1135,19 @@ vector<int> findModifyTime(unordered_map<uint64_t , int> timeSumMap, int avr, in
 	return biasID;
 }
 
+uint64_t findModifyDemand(vector<int *> _optim, bool flag) {
+	uint64_t ID = 0;
+	auto maxIter = max_element(_optim.begin(), _optim.end(), [] (int *a, int *b) {return *a < *b;});
+	auto minIter = min_element(_optim.begin(), _optim.end(), [] (int *a, int *b) {return *a < *b;});
+	if(flag == true) { // 挑最大
+		ID = distance(_optim.begin(), maxIter);
+	}
+	else{
+		ID = distance(_optim.begin(), minIter);
+	}
+
+	return ID;
+}
 
 void Base::updateBandwidth(int L) {
 	int maxL = 2000; // 最大迭代次数
@@ -1175,10 +1188,13 @@ void Base::updateBandwidth(int L) {
 			if(std::find(siteFixedTime.begin(), siteFixedTime.end(), i) != siteFixedTime.end()) {
 				continue;
 			}
-//			if(std::find(modifyTimeVec.begin(), modifyTimeVec.end(), i) == modifyTimeVec.end()) {
-//				continue;
-//			}
-			uint64_t modifyDemand = randomNumInt(0, siteConnectSize - 1); // 在该时刻里随机一个要修改的客户节点的带宽量
+			uint64_t modifyDemand = 0;
+			if(siteSumTimeMap.at(i) > thisSiteAvr) { // 时刻带宽量比平均值大，要减，挑一个分配带宽量最多的客户节点
+				modifyDemand = findModifyDemand(optim[i], true);
+			} else{
+				modifyDemand = findModifyDemand(optim[i], false);
+			}
+//			uint64_t modifyDemand = randomNumInt(0, siteConnectSize - 1); // 在该时刻里随机一个要修改的客户节点的带宽量
 			string thisDemandName = siteConnetDemand.at(siteName)[modifyDemand];
 			vector<int> thisDemandConnectSite = usableSite.at(thisDemandName);
 			vector<int> thisDemandUsableSiteVec = findUsableSiteIndex(modifiedSite, thisDemandConnectSite, i, siteIndex);
