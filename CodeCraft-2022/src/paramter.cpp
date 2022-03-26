@@ -33,11 +33,10 @@ void Paramerter::softmax(size_t start, float offValue) {
         }
 }
 
-
 void Paramerter::normal(double mean, double stddev) {
     // std::random_device rd{};
-    auto time = std::chrono::system_clock::now().time_since_epoch().count();
-    std::mt19937 gen{time};
+    uint64_t time = std::chrono::system_clock::now().time_since_epoch().count();
+    std::mt19937 gen(time);
     std::normal_distribution<> rng{mean, stddev};
     for (size_t i = 0; i < value.size(); i++) {
         value[i] = std::abs(rng(gen));
@@ -45,12 +44,20 @@ void Paramerter::normal(double mean, double stddev) {
 }
 
 void Paramerter::init(size_t threshold) {
-    auto time = std::chrono::system_clock::now().time_since_epoch().count();
-    std::mt19937 gen{time};
+    uint64_t time = std::chrono::system_clock::now().time_since_epoch().count();
+    std::mt19937 gen(time);
     size_t id = gen() % threshold;
     value[id] = 1;
 }
 
+
+void Paramerter::drop() {
+    value.assign(oldValue.begin(), oldValue.end());
+}
+
+void Paramerter::stash() {
+    oldValue.assign(value.begin(), value.end());
+}
 
 //unordered_map<string,pair<int,vector<double>>> siteLogMap;
 SiteLog::SiteLog(vector<string> _siteNodeName, vector<int> _siteNodeBandWith, int _frameSize):siteNodeName(_siteNodeName){
@@ -108,29 +115,52 @@ void SiteLog::logClear(){
 }
 
 
-int Optim::mean() {
-    int64_t avr = 0;
-    for(size_t i = 0; i < value.size(); ++i) {
-        avr += (value[i].first - avr) / (i + 1);
-    }
-    return avr;
-}
+// int Optim::mean() {
+//     int avr = 0;
+//     for(size_t i = 0; i < value.size(); ++i) {
+//         avr += (value[i].first - avr) / (int(i) + 1);
+//         if (avr < 0) {
+//             continue;
+//         }
+//     }
+//     return avr;
+// }
 
 
-uint32_t Optim::mid() {
-    size_t n = value.size();
-    auto mid = value.begin() + n / 2;
-    std::nth_element(value.begin(), mid, value.end(), 
-            [](Optim::DataType a, Optim::DataType b) { return a.first < b.first;});
-    return mid->first;
-}
+// int32_t Optim::mid() {
+//     size_t n = value.size();
+//     auto mid = value.begin() + n / 2;
+//     std::nth_element(value.begin(), mid, value.end(), 
+//             [](Optim::DataType a, Optim::DataType b) { return a.first < b.first;});
+//     return mid->first;
+// }
 
 
-void Optim::step(int _mean) {
-    for (size_t i = 0; i < value.size(); ++i) {
-        value[i].second += float(_mean - value[i].first) / 1000;
-        if (value[i].second < 0.0f) {
-            value[i].second = 0.0f;
-        }
-    }
-}
+// void Optim::step(int _mean) {
+//     auto compre = [](Optim::DataType a, Optim::DataType b) {
+//         uint32_t suma = 0;
+//         uint32_t sumb = 0;
+//         for (auto& v: a) {
+//             suma += v.first;
+//         }
+//         for (auto& v: b) {
+//             sumb += v.first;
+//         }
+//         return suma < sumb; 
+//     };
+//     std::sort(value.begin(), value.end(), compre);
+//     size_t spilt = ceil(value.size() * 0.95);
+//     for (size_t i = 0; i < value.size(); ++i) {
+//         for (auto& v: value[i]) {
+//             if (i >= spilt) {
+//                 v.second += float(i) / value.size();
+//             } else {
+//                 v.second -= float(i) / (value.size() * 10);
+//             }
+//             if (v.second < 0.0f) {
+//                 v.second = 0.0f;
+//             }
+//         }
+//     }
+//     value.clear();
+// }

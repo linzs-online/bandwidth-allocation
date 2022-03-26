@@ -3,13 +3,13 @@ cmake_minimum_required(VERSION 2.8)
 
 # 项目信息
 project("CodeCraft-2021")
-
+#set(CMAKE_CXX_COMPILER /bin/clang++-10)
+#set(CMAKE_C_COMPILER /bin/clang-10)
 # include路径
 include_directories(${PROJECT_SOURCE_DIR}/inc)
 
 # 设置可执行文件生成路径
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/../bin)
-
 # 生成debug版本
 SET(CMAKE_BUILD_TYPE "debug")
 if (CMAKE_BUILD_TYPE STREQUAL debug)
