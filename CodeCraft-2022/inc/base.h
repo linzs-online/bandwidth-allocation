@@ -46,15 +46,12 @@ public:
     vector<int> siteNodeBandwidth;
     vector<vector<int>> demand;  //时间序列下的客户节点请求
     unordered_map<uint32_t,unordered_map<string,unordered_map<string, pair<string,int>>>> bestResult;
+    //unordered_map<uint32_t,unordered_map<string,unordered_map<string, pair<string,int>>>> goodResult;
+    uint32_t bestScore;
 
     Base(string&& _filePath);
-    void solveMaxFree();
     void solveFree();
-    void solveMaxAndWeight();
-    void maxDeal(int& demandNow,
-                vector<int>& siteNodeBand, 
-                const vector<int>& demandUsableSite, 
-                vector<pair<string, int>>& perResult);
+    void solveFree2();
     void solve();
     void save(string&& _fileName);
     void save2(string&& _fileName);
@@ -65,14 +62,6 @@ public:
     void qosConstraintInit(string&& _filePath);
     void paramInit();
 	void findUsableSite();
-    void _largestMethod(int &demandNow,
-                        vector<int>& siteNodeBand,
-                        const vector<int>& demandUsableSite,
-                        vector<pair<string, int>>& result,
-						vector<int> &siteCnt,
-						const int maxFree,
-						bool &flag,
-                        unordered_set<int>& usedSiteIndex) const;
     void _weightMethod(int demandNow,
                         vector<int>& siteNodeBand,
                         const vector<int>& demandUsableSite,
@@ -84,13 +73,12 @@ public:
                     const vector<int>& demandUsableSite,
                     vector<pair<string, int>>& result,
                     Paramerter::Ptr weight);
-    unsigned int getScore(vector<vector<pair<string, int>>>& result);
-    void updateWeight(Paramerter::Ptr weight, vector<int> demandUsableSiteIndex, size_t frameId);
-	void simulatedAnnealing(bool &flag, float &T);
+    uint32_t getScore();
 	void updateBandwidth(int L);
 	void modifySiteBandwidth(int modifiedSiteID, int perSiteModifyVal, bool flag);
 	vector<int> findUsableSiteIndex(vector<int> modifiedSite, const vector<int>& demandConnectSite, uint64_t FrameID, int selfID);
 	int computeSiteSumTime(const string &siteName, int FrameID);
+    void initalzeResult(uint16_t&& size);
 
 private:
     void _weightDistribution(int demandNow,
@@ -99,10 +87,8 @@ private:
                         const vector<int>& demandUsableSite,
                         unordered_map<string, int>& record, 
                         Paramerter::Ptr weight) const;
-	bool judgeRestFree(vector<int>& _demandUsableSiteIndex ,vector<int>& _siteCnt, int _maxFree);
     void getPreFrameResult(vector<unordered_map<string,vector<pair<string, int>>>>& _preFrameResult,
                            vector<vector<pair<string, int>>>& result);
-    void _updateAllWeight();
     void _frameSiteOptim(unordered_map<string, Optim::DataType>& siteFrameLog);
 };
 
